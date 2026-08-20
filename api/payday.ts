@@ -105,7 +105,8 @@ export default async function handler(
 
       // AI writes a funny, sarcastic Khmer nudge; fall back to the standard
       // reminder whenever AI is disabled or every configured model fails.
-      const goal = await getSavingProgress(p.userId).catch(() => null);
+      const [yt, mt] = today.split("-").map(Number);
+      const goal = await getSavingProgress(p.userId, yt, mt).catch(() => null);
       let text: string;
       let plain = false;
       if (USE_AI) {

@@ -7,7 +7,6 @@ export interface Profile {
   username: string | null;
   salaryCents: number | null;
   savingGoalCents: number | null;
-  goalStartDate: string | null;
 }
 
 export interface OtRecord {

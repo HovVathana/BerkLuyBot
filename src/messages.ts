@@ -7,9 +7,7 @@ import type {
 import type { MonthTotals, OtComputed, OtRecord, OtState, Profile } from "./types.js";
 import type { SavingProgress } from "./storage.js";
 
-export interface GoalView extends SavingProgress {
-  startLabel: string;
-}
+export interface GoalView extends SavingProgress {}
 
 export function goalText(g: GoalView): string {
   const pct = Math.min(100, Math.round((g.earnedCents / g.goalCents) * 100));
@@ -25,7 +23,7 @@ export function goalText(g: GoalView): string {
       ? `✅ <b>Goal reached!</b> Treat yourself — you earned it. 🎉`
       : `Remaining: <b>${fmtCents(g.goalCents - g.earnedCents)}</b> · Keep logging those OT hours! 💪`,
     "",
-    `Started counting OT from ${g.startLabel} (${g.count} record${g.count === 1 ? "" : "s"} logged so far).`,
+    `Counting <b>${monthLabel(g.monthKey)}</b>'s OT: <b>${g.count}</b> record${g.count === 1 ? "" : "s"} — paid with the 26th paycheck, resets on the 1st.`,
   ].join("\n");
 }
 

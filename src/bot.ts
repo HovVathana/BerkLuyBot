@@ -325,14 +325,17 @@ async function cmdGoal(ctx: Context): Promise<unknown> {
   await ensureProfile(from.id, fields(ctx)).catch(() => {});
   const arg = argOf(ctx).toLowerCase();
   const profile = await getProfile(from.id);
-  if (profile?.savingGoalCents && profile.goalStartDate) {
-    const progress = (await getSavingProgress(from.id).catch(() => null)) ?? {
-      goalCents: profile.savingGoalCents,
+  const today = todayInTz(TZ);
+  const [y, m] = today.split("-").map(Number);
+  const progress =
+    (await getSavingProgress(from.id, y, m).catch(() => null)) ?? {
+      goalCents: profile?.savingGoalCents ?? 0,
       earnedCents: 0,
       count: 0,
-      startDate: profile.goalStartDate,
+      monthKey: today.slice(0, 7),
     };
-    const view: GoalView = { ...progress, startLabel: friendlyDate(progress.startDate) };
+  if (profile?.savingGoalCents) {
+    const view: GoalView = progress;
     const suffix = arg ? "\n\n" : "";
     if (arg === "0" || arg === "none" || arg === "off") {
       await clearSavingGoal(from.id).catch(() => {});
@@ -343,8 +346,9 @@ async function cmdGoal(ctx: Context): Promise<unknown> {
       if (cents === null || cents <= 0) {
         return ctx.reply("<b>Usage:</b> /goal &lt;amount&gt;, e.g. <b>/goal 1000</b>. Use <b>/goal 0</b> to clear.");
       }
-      await setSavingGoal(from.id, cents, todayInTz(TZ)).catch(() => {});
-      return replySensitive(ctx, `✅ <b>Goal updated to ${fmtCents(cents)}</b>\n\n${goalText(view)}`);
+      await setSavingGoal(from.id, cents).catch(() => {});
+      const updated: GoalView = { ...progress, goalCents: cents };
+      return replySensitive(ctx, `✅ <b>Goal updated to ${fmtCents(cents)}</b>\n\n${goalText(updated)}`);
     }
     return replySensitive(ctx, goalText(view) + suffix);
   }
@@ -353,10 +357,10 @@ async function cmdGoal(ctx: Context): Promise<unknown> {
     if (cents === null || cents <= 0) {
       return ctx.reply("<b>Usage:</b> /goal &lt;amount&gt;, e.g. <b>/goal 1000</b>.");
     }
-    await setSavingGoal(from.id, cents, todayInTz(TZ)).catch(() => {});
+    await setSavingGoal(from.id, cents).catch(() => {});
     return replySensitive(
       ctx,
-      `✅ <b>OT savings goal: ${fmtCents(cents)}</b>\n\nFrom ${friendlyDate(todayInTz(TZ))}, every OT dollar counts toward it. Record hours with /ot.`,
+      `✅ <b>OT savings goal: ${fmtCents(cents)}</b>\n\nEvery OT dollar this month counts toward it — resets on the 1st, paid with the 26th. Record hours with /ot.`,
     );
   }
   const state: OtState = { flow: "goal", step: "goal" };
@@ -556,10 +560,10 @@ bot.on("message:text", async (ctx) => {
     }
     await clearConversation(from.id).catch(() => {});
     if (st.flow === "goal") {
-      await setSavingGoal(from.id, cents, todayInTz(TZ)).catch(() => {});
+      await setSavingGoal(from.id, cents).catch(() => {});
       return replySensitive(
         ctx,
-        `🎯 <b>OT savings goal: ${fmtCents(cents)}</b>\n\nFrom ${friendlyDate(todayInTz(TZ))}, every OT dollar counts toward it. Record hours with /ot.`,
+        `🎯 <b>OT savings goal: ${fmtCents(cents)}</b>\n\nEvery OT dollar this month counts toward it — resets on the 1st, paid with the 26th. Record hours with /ot.`,
       );
     }
     return applySalary(ctx, from.id, cents);
