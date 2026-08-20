@@ -323,7 +323,7 @@ async function cmdPayday(ctx: Context): Promise<unknown> {
     }
     blocks.push({ ev, halfCents: half, otCents: ot, otCount });
   }
-  const text = [paydayCoverText(profile), "", ...blocks.map((b) => paydayBreakdownText(b))].join("\n");
+  const text = [paydayCoverText(profile), ...blocks.map((b) => paydayBreakdownText(b))].join("\n\n");
   return replySensitive(ctx, text);
 }
 
