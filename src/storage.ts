@@ -19,6 +19,8 @@ async function getProfile(userId: number): Promise<Profile | null> {
     lastName: row.lastName,
     username: row.username,
     salaryCents: row.salaryCents,
+    savingGoalCents: row.savingGoalCents,
+    goalStartDate: row.goalStartDate,
   };
 }
 
@@ -56,7 +58,55 @@ async function listProfilesWithSalary(): Promise<Profile[]> {
     lastName: r.lastName,
     username: r.username,
     salaryCents: r.salaryCents,
+    savingGoalCents: r.savingGoalCents,
+    goalStartDate: r.goalStartDate,
   }));
+}
+
+export interface SavingProgress {
+  goalCents: number;
+  earnedCents: number;
+  count: number;
+  startDate: string;
+}
+
+/** Sets the OT savings goal. The start date is recorded on first set. */
+async function setSavingGoal(userId: number, goalCents: number, startDate: string): Promise<void> {
+  const row = await prisma.profile.findUnique({ where: { userId: uid(userId) } });
+  await prisma.profile.update({
+    where: { userId: uid(userId) },
+    data: {
+      savingGoalCents: goalCents,
+      goalStartDate: row?.goalStartDate ?? startDate,
+    },
+  });
+}
+
+async function clearSavingGoal(userId: number): Promise<void> {
+  await prisma.profile.update({
+    where: { userId: uid(userId) },
+    data: { savingGoalCents: null, goalStartDate: null },
+  });
+}
+
+/** OT money earned from the goal start date onwards, summed toward the goal. */
+async function getSavingProgress(userId: number): Promise<SavingProgress | null> {
+  const profile = await getProfile(userId);
+  if (!profile || !profile.savingGoalCents || !profile.goalStartDate) return null;
+  const agg = await prisma.otRecord.aggregate({
+    where: {
+      userId: uid(userId),
+      date: { gte: profile.goalStartDate },
+    },
+    _sum: { amountCents: true },
+    _count: true,
+  });
+  return {
+    goalCents: profile.savingGoalCents,
+    earnedCents: agg._sum.amountCents ?? 0,
+    count: agg._count,
+    startDate: profile.goalStartDate,
+  };
 }
 
 export interface NewOtRecord {
@@ -191,15 +241,18 @@ async function tryMarkNotification(
 export {
   addOtRecord,
   clearConversation,
+  clearSavingGoal,
   deleteOtRecord,
   ensureProfile,
   getConversation,
   getOtMonthTotals,
   getOtRecords,
   getProfile,
+  getSavingProgress,
   listProfilesWithSalary,
   setConversation,
   setSalary,
+  setSavingGoal,
   tryMarkNotification,
 };
 export type { OtRecord };

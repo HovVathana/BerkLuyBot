@@ -1,5 +1,5 @@
 import { dayDiff, nextPaydayEvent, todayInTz } from "../src/payday.js";
-import { getOtMonthTotals, listProfilesWithSalary, tryMarkNotification } from "../src/storage.js";
+import { getOtMonthTotals, getSavingProgress, listProfilesWithSalary, tryMarkNotification } from "../src/storage.js";
 import { paydayNotificationText } from "../src/messages.js";
 import { aiReminderText } from "../src/gemini.js";
 import type { PaydayBreakdown } from "../src/messages.js";
@@ -105,10 +105,11 @@ export default async function handler(
 
       // AI writes a funny, sarcastic Khmer nudge; fall back to the standard
       // reminder whenever AI is disabled or every configured model fails.
+      const goal = await getSavingProgress(p.userId).catch(() => null);
       let text: string;
       let plain = false;
       if (USE_AI) {
-        const ai = await aiReminderText({ p, breakdown, daysUntil });
+        const ai = await aiReminderText({ p, breakdown, daysUntil, goal });
         if (ai) {
           text = ai;
           plain = true;

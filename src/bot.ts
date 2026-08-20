@@ -2,18 +2,22 @@ import { Bot, Context, InlineKeyboard } from "grammy";
 import {
   addOtRecord,
   clearConversation,
+  clearSavingGoal,
   deleteOtRecord,
   ensureProfile,
   getConversation,
   getOtMonthTotals,
   getOtRecords,
   getProfile,
+  getSavingProgress,
   setConversation,
   setSalary,
+  setSavingGoal,
 } from "./storage.js";
 import { computeOt, OT_NAMES, parseSalaryToCents, parseTimes, baseHourlyCents } from "./payroll.js";
 import { fmtDay, friendlyDate, monthLabel, parseDay, paydayEvents, todayInTz } from "./payday.js";
 import {
+  goalText,
   monthText,
   otListText,
   otPreviewText,
@@ -22,6 +26,7 @@ import {
   paydayCoverText,
   salaryText,
 } from "./messages.js";
+import type { GoalView } from "./messages.js";
 import { fmtCents, fmtHours } from "./format.js";
 import type { OtRecord, OtState, OtType } from "./types.js";
 
@@ -48,6 +53,7 @@ export function ensureBotReady(): Promise<void> {
         { command: "ot", description: "Record overtime" },
         { command: "otlist", description: "My OT records (optionally YYYY-MM)" },
         { command: "month", description: "Monthly summary & expected payments" },
+        { command: "goal", description: "OT savings goal, e.g. /goal 1000" },
         { command: "payday", description: "Next paydays (scheduled & actual)" },
         { command: "del", description: "Delete an OT record, e.g. /del 3" },
         { command: "cancel", description: "Cancel the current entry" },
@@ -91,6 +97,7 @@ function helpText(): string {
     "<b>/ot</b> [type] [date] [time] — record OT",
     "<b>/otlist</b> [YYYY-MM] — list OT records for a month",
     "<b>/month</b> [YYYY-MM] — monthly summary &amp; expected payments",
+    "<b>/goal</b> &lt;amount&gt; — OT savings goal (e.g. /goal 1000; /goal 0 to remove)",
     "<b>/payday</b> — next paydays (scheduled &amp; actual)",
     "<b>/del</b> &lt;index&gt; — delete an OT record (see /otlist)",
     "<b>/cancel</b> — cancel the current entry",
@@ -135,7 +142,7 @@ function menuKeyboard(): InlineKeyboard {
     .text("💰 Payday", "menu:payday").text("💵 Salary", "menu:salary").row()
     .text("➕ Record OT", "menu:ot").text("📋 OT List", "menu:otlist").row()
     .text("📊 Month", "menu:month").text("💵 Set Salary", "menu:setsalary").row()
-    .text("❓ Help", "menu:help");
+    .text("🎯 Goal", "menu:goal").text("❓ Help", "menu:help");
 }
 
 function typeKeyboard(): InlineKeyboard {
@@ -313,6 +320,53 @@ async function cmdPayday(ctx: Context): Promise<unknown> {
   return replySensitive(ctx, text);
 }
 
+async function cmdGoal(ctx: Context): Promise<unknown> {
+  const from = ctx.from!;
+  await ensureProfile(from.id, fields(ctx)).catch(() => {});
+  const arg = argOf(ctx).toLowerCase();
+  const profile = await getProfile(from.id);
+  if (profile?.savingGoalCents && profile.goalStartDate) {
+    const progress = (await getSavingProgress(from.id).catch(() => null)) ?? {
+      goalCents: profile.savingGoalCents,
+      earnedCents: 0,
+      count: 0,
+      startDate: profile.goalStartDate,
+    };
+    const view: GoalView = { ...progress, startLabel: friendlyDate(progress.startDate) };
+    const suffix = arg ? "\n\n" : "";
+    if (arg === "0" || arg === "none" || arg === "off") {
+      await clearSavingGoal(from.id).catch(() => {});
+      return replySensitive(ctx, `🎯 Goal cleared. Every drop of OT money is yours again.`);
+    }
+    if (arg) {
+      const cents = parseSalaryToCents(argOf(ctx));
+      if (cents === null || cents <= 0) {
+        return ctx.reply("<b>Usage:</b> /goal &lt;amount&gt;, e.g. <b>/goal 1000</b>. Use <b>/goal 0</b> to clear.");
+      }
+      await setSavingGoal(from.id, cents, todayInTz(TZ)).catch(() => {});
+      return replySensitive(ctx, `✅ <b>Goal updated to ${fmtCents(cents)}</b>\n\n${goalText(view)}`);
+    }
+    return replySensitive(ctx, goalText(view) + suffix);
+  }
+  if (arg && !["0", "none", "off"].includes(arg)) {
+    const cents = parseSalaryToCents(argOf(ctx));
+    if (cents === null || cents <= 0) {
+      return ctx.reply("<b>Usage:</b> /goal &lt;amount&gt;, e.g. <b>/goal 1000</b>.");
+    }
+    await setSavingGoal(from.id, cents, todayInTz(TZ)).catch(() => {});
+    return replySensitive(
+      ctx,
+      `✅ <b>OT savings goal: ${fmtCents(cents)}</b>\n\nFrom ${friendlyDate(todayInTz(TZ))}, every OT dollar counts toward it. Record hours with /ot.`,
+    );
+  }
+  const state: OtState = { flow: "goal", step: "goal" };
+  await setConversation(from.id, state).catch(() => {});
+  return ctx.reply("🎯 <b>Set your OT savings goal</b> as a number, e.g. <b>1000</b> (or /goal 0 to clear).", {
+    parse_mode: "HTML",
+    reply_markup: cancelKeyboard(),
+  });
+}
+
 async function cmdDel(ctx: Context): Promise<unknown> {
   const from = ctx.from!;
   const parts = argOf(ctx).split(/\s+/).filter(Boolean);
@@ -371,6 +425,7 @@ bot.command("salary", cmdSalary);
 bot.command("ot", cmdOt);
 bot.command("otlist", cmdOtlist);
 bot.command("month", cmdMonth);
+bot.command("goal", cmdGoal);
 bot.command("payday", cmdPayday);
 bot.command("del", cmdDel);
 bot.command("cancel", cmdCancel);
@@ -394,6 +449,7 @@ bot.on("callback_query:data", async (ctx) => {
       case "ot": return cmdOt(ctx);
       case "otlist": return cmdOtlist(ctx);
       case "month": return cmdMonth(ctx);
+      case "goal": return cmdGoal(ctx);
       case "setsalary": return menuSetSalary(ctx);
       case "help": return cmdHelp(ctx);
       default: return;
@@ -492,13 +548,20 @@ bot.on("message:text", async (ctx) => {
   if (!st) return;
   const text = ctx.message.text.trim();
 
-  // ---- salary amount entry (from the menu) ----
-  if (st.flow === "salary") {
+  // ---- salary / goal amount entry (from the menu) ----
+  if (st.flow === "salary" || st.flow === "goal") {
     const cents = parseSalaryToCents(text);
     if (cents === null || cents <= 0) {
       return ctx.reply("Send a valid amount, e.g. <b>470</b> or <b>470.50</b> (or /cancel).");
     }
     await clearConversation(from.id).catch(() => {});
+    if (st.flow === "goal") {
+      await setSavingGoal(from.id, cents, todayInTz(TZ)).catch(() => {});
+      return replySensitive(
+        ctx,
+        `🎯 <b>OT savings goal: ${fmtCents(cents)}</b>\n\nFrom ${friendlyDate(todayInTz(TZ))}, every OT dollar counts toward it. Record hours with /ot.`,
+      );
+    }
     return applySalary(ctx, from.id, cents);
   }
 

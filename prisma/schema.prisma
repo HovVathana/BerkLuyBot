@@ -11,13 +11,15 @@ datasource db {
 // One row per Telegram account. All salary/OT rows key off the Telegram
 // user id, so users can never see another user's data.
 model Profile {
-  userId      BigInt   @id @map("user_id")
-  firstName   String?  @map("first_name")
-  lastName    String?  @map("last_name")
-  username    String?
-  salaryCents Int?     @map("salary_cents") // monthly salary in cents
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  userId          BigInt   @id @map("user_id")
+  firstName       String?  @map("first_name")
+  lastName        String?  @map("last_name")
+  username        String?
+  salaryCents     Int?     @map("salary_cents") // monthly salary in cents
+  savingGoalCents Int?     @map("saving_goal_cents") // OT savings target in cents
+  goalStartDate   String?  @map("goal_start_date") // "YYYY-MM-DD" — OT earned since this counts toward the goal
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   otRecords    OtRecord[]
   notifications Notification[]

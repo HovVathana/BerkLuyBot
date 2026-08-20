@@ -6,6 +6,8 @@ export interface Profile {
   lastName: string | null;
   username: string | null;
   salaryCents: number | null;
+  savingGoalCents: number | null;
+  goalStartDate: string | null;
 }
 
 export interface OtRecord {
@@ -37,8 +39,8 @@ export interface OtComputed {
 }
 
 export interface OtState {
-  flow: "ot" | "salary";
-  step: "type" | "date" | "time" | "confirm" | "salary";
+  flow: "ot" | "salary" | "goal";
+  step: "type" | "date" | "time" | "confirm" | "salary" | "goal";
   otType?: OtType;
   date?: string;
   startTime?: string;

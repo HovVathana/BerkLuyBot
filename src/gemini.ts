@@ -13,6 +13,7 @@ interface ReminderContext {
   p: Profile;
   breakdown: PaydayBreakdown;
   daysUntil: number;
+  goal?: { goalCents: number; earnedCents: number } | null;
 }
 
 async function callModel(model: string, prompt: string): Promise<string | null> {
@@ -45,7 +46,7 @@ async function callModel(model: string, prompt: string): Promise<string | null> 
 }
 
 function buildPrompt(c: ReminderContext): string {
-  const { p, breakdown, daysUntil } = c;
+  const { p, breakdown, daysUntil, goal } = c;
   const ev = breakdown.ev;
   const isToday = daysUntil === 0;
   const total = breakdown.otCents > 0 ? breakdown.halfCents + breakdown.otCents : breakdown.halfCents;
@@ -62,6 +63,9 @@ function buildPrompt(c: ReminderContext): string {
     "You are a cheeky, sarcastic personal finance bot for a Cambodian office worker.",
     `The user's last name is "${name}" — address them by that name in ENGLISH letters exactly as written (e.g. "Chea!"); never transliterate or translate the name into Khmer. ${dateLine} (${ev.kind === "12th" ? "12th" : "26th"} payday).`,
     `Their salary half is ${fmtCents(breakdown.halfCents)}, total payout about ${total}. ${otLine}`,
+    goal
+      ? `They also have an OT savings goal of ${fmtCents(goal.goalCents)}, with ${fmtCents(goal.earnedCents)} saved so far.`
+      : "",
     "Write ONE short, punchy message (max 2 sentences) in Khmer script with correct Khmer spelling.",
     "Allowed scripts: KHMER script + ENGLISH (Latin) only — mixing English words like OT is fine.",
     "English is allowed ONLY as complete real words (e.g. OT, ACLEDA). Never splice random Latin letters or code-like fragments into Khmer words.",
@@ -69,11 +73,22 @@ function buildPrompt(c: ReminderContext): string {
     "NEVER imply the OT money is already in the account — it only arrives ON payday day itself, together with the salary. Jokes can mock them for waiting for it, not for spending it.",
     "STRICTLY FORBIDDEN: Thai, Lao, Burmese, Devanagari, Chinese, or ANY other script. Every letter must be Khmer or Latin/English. Never romanize Khmer into Latin letters.",
     "Make it VERY funny: roast them HARD like a savage best friend — their broke habits, bad spending, pretending to be rich, or whining. Be mean but with love, never truly insulting.",
+    goal
+      ? "If they have a savings goal, judge their progress playfully — groan if it's still far off, hype them up if they're close."
+      : "",
     "2–3 emoji maximum. No markdown, no HTML, no quotes — plain text only.",
     isToday
       ? "Today is payday: no day count needed — joke about being rich for 10 minutes."
       : `Your message MUST open by stating the days remaining in Khmer, e.g. "នៅសល់តែបីថ្ងៃទៀត!" for ${daysUntil} days — then tease them about holding on until the big day. Khmer count words: 1=មួយ 2=ពីរ 3=បី 4=បួន 5=ប្រាំ 6=ប្រាំមួយ 7=ប្រាំពីរ 8=ប្រាំបី 9=ប្រាំបួន 10=ដប់.`,
   ].join("\n");
+}
+
+// Hard guarantee: strip every character that isn't Khmer, Latin, common
+// punctuation or emoji before the text is sent to Telegram.
+const ALLOWED = /[\u1780-\u17FF\u19E0-\u19FFA-Za-z0-9\s.,!?\-:;()"'$%&*+=@#<>~/\[\]{}|_^`\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/u;
+
+function sanitize(t: string): string {
+  return [...t].filter((ch) => ALLOWED.test(ch)).join("");
 }
 
 // Generates a Khmer, funny-sarcastic reminder via Gemini. Returns null when
@@ -83,8 +98,10 @@ export async function aiReminderText(c: ReminderContext): Promise<string | null>
   const prompt = buildPrompt(c);
   const models = MODELS.length > 0 ? MODELS : ["gemini-2.5-flash"];
   for (const model of models) {
-    const text = await callModel(model, prompt);
-    if (text) return text;
+    const raw = await callModel(model, prompt);
+    if (!raw) continue;
+    const text = sanitize(raw).trim();
+    if (text.length > 0) return text;
   }
   return null;
 }

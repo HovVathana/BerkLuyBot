@@ -5,6 +5,29 @@ import type {
   CalendarEvent,
 } from "./payday.js";
 import type { MonthTotals, OtComputed, OtRecord, OtState, Profile } from "./types.js";
+import type { SavingProgress } from "./storage.js";
+
+export interface GoalView extends SavingProgress {
+  startLabel: string;
+}
+
+export function goalText(g: GoalView): string {
+  const pct = Math.min(100, Math.round((g.earnedCents / g.goalCents) * 100));
+  const filled = Math.round(pct / 10);
+  const bar = "▰".repeat(filled) + "▱".repeat(10 - filled);
+  const done = pct >= 100;
+  return [
+    `<b>🎯 OT savings goal</b>`,
+    `Target: <b>${fmtCents(g.goalCents)}</b>`,
+    `Saved: <b>${fmtCents(g.earnedCents)}</b> · <b>${pct}%</b>`,
+    `\`${bar} ${pct}%\``,
+    done
+      ? `✅ <b>Goal reached!</b> Treat yourself — you earned it. 🎉`
+      : `Remaining: <b>${fmtCents(g.goalCents - g.earnedCents)}</b> · Keep logging those OT hours! 💪`,
+    "",
+    `Started counting OT from ${g.startLabel} (${g.count} record${g.count === 1 ? "" : "s"} logged so far).`,
+  ].join("\n");
+}
 
 export function salaryText(p: Profile): string {
   const s = p.salaryCents!;
