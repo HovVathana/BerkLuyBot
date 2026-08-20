@@ -5,7 +5,7 @@ import { aiReminderText } from "../src/gemini.js";
 import type { PaydayBreakdown } from "../src/messages.js";
 
 const TZ = process.env.APP_TZ || "Asia/Phnom_Penh";
-const REMIND_DAYS = Number(process.env.REMIND_DAYS_BEFORE ?? 5);
+const REMIND_DAYS = Number(process.env.REMIND_DAYS_BEFORE ?? 10);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const USE_AI = process.env.GEMINI_API_KEY ? true : false;
 
