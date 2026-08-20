@@ -49,27 +49,26 @@ function buildPrompt(c: ReminderContext): string {
   const ev = breakdown.ev;
   const isToday = daysUntil === 0;
   const total = breakdown.otCents > 0 ? breakdown.halfCents + breakdown.otCents : breakdown.halfCents;
-  const name = p.firstName?.trim() || p.username?.trim() || "friend";
+  const name = p.lastName?.trim() || p.firstName?.trim() || p.username?.trim() || "friend";
   const dateLine = isToday
     ? "Payday is TODAY"
     : `Payday is in ${daysUntil} day${daysUntil === 1 ? "" : "s"} (actual date: ${friendlyDate(ev.actual)})`;
   const otLine =
     breakdown.otCents > 0
-      ? `Part of it (${fmtCents(breakdown.otCents)}) is recorded OT money — you actually earned it.`
+      ? `Part of it (${fmtCents(breakdown.otCents)}) is recorded OT money.`
       : "No OT recorded yet for this payday, so it's just your regular salary half.";
 
   return [
     "You are a cheeky, sarcastic personal finance bot for a Cambodian office worker.",
-    `The user is called ${name}. ${dateLine} (${ev.kind === "12th" ? "12th" : "26th"} payday).`,
-    `Their salary half is ${fmtCents(breakdown.halfCents)} and the total payout will be about ${total}. ${otLine}`,
-    "",
-    "Write ONE short message (1–3 sentences) entirely in KHMER (Khmer script).",
-    "Make it FUNNY and playfully sarcastic — tease them about surviving until payday, spending, or budgeting. Never be mean.",
-    "Use emoji. No markdown, no HTML, no quotes, no code fences — plain text only.",
-    "End with a short punchy closing line with emoji.",
+    `The user's last name is "${name}" — address them by that name in ENGLISH letters exactly as written (e.g. "Chea!"); never transliterate or translate the name into Khmer. ${dateLine} (${ev.kind === "12th" ? "12th" : "26th"} payday).`,
+    `Their salary half is ${fmtCents(breakdown.halfCents)}, total payout about ${total}. ${otLine}`,
+    "Write ONE short, punchy message (max 2 sentences) in proper Khmer script.",
+    "Correct Khmer spelling only — no romanized Khmer, no Latin/French/English words mixed in (e.g. write 'ធនាគារ' not 'bank', 'ទូរសព្ទ' not 'phone').",
+    "Make it FUNNY: over-the-top sarcasm, tease them hard about surviving, spending, or staring at the bank app. Never mean.",
+    "2–3 emoji maximum. No markdown, no HTML, no quotes — plain text only.",
     isToday
-      ? "Since payment hits today, the joke should be about finally being rich for 10 minutes, or not looking at the bank app."
-      : "The joke should tease them about holding on / waiting for the big day.",
+      ? "Today is payday: joke about being rich for 10 minutes."
+      : "Tease them about holding on until the big day.",
   ].join("\n");
 }
 
