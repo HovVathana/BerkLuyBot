@@ -10,11 +10,9 @@ import {
   getProfile,
   setConversation,
   setSalary,
-  tryMarkNotification,
 } from "./storage.js";
 import { computeOt, OT_NAMES, parseSalaryToCents, parseTimes, baseHourlyCents } from "./payroll.js";
 import { fmtDay, friendlyDate, monthLabel, parseDay, paydayEvents, todayInTz } from "./payday.js";
-import { dayDiff, nextPaydayEvent } from "./payday.js";
 import {
   monthText,
   otListText,
@@ -22,11 +20,9 @@ import {
   otSavedText,
   paydayBreakdownText,
   paydayCoverText,
-  paydayNotificationText,
   salaryText,
 } from "./messages.js";
 import { fmtCents, fmtHours } from "./format.js";
-import { aiReminderText } from "./gemini.js";
 import type { OtRecord, OtState, OtType } from "./types.js";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -66,7 +62,6 @@ export function ensureBotReady(): Promise<void> {
 }
 
 const TZ = process.env.APP_TZ || "Asia/Phnom_Penh";
-const REMIND_DAYS = Number(process.env.REMIND_DAYS_BEFORE ?? 5);
 
 const NO_SALARY =
   "💵 You haven't set your salary yet.\n\nSet it with <b>/setsalary</b>, e.g. <b>/setsalary 470</b>.";
@@ -488,66 +483,11 @@ bot.on("callback_query:data", async (ctx) => {
 });
 
 // ---------------------------------------------------------------------------
-// Activity-driven payday nudge. Runs on every message so reminders also work
-// WITHOUT any cron job (e.g. Vercel Hobby ignores vercel.json crons). The
-// notifications table dedupes against cron/GHA runs, so all can coexist.
-// ---------------------------------------------------------------------------
-async function maybeNudge(ctx: Context): Promise<void> {
-  const from = ctx.from;
-  if (!from) return;
-  const profile = await getProfile(from.id).catch(() => null);
-  if (!profile || !profile.salaryCents) return;
-  const today = todayInTz(TZ);
-  const ev = nextPaydayEvent(today);
-  if (!ev) return;
-  const daysUntil = dayDiff(today, ev.actual);
-  // Only fire on the exact trigger day (payday itself or exactly
-  // REMIND_DAYS_BEFORE days before); any other day → nothing.
-  if (daysUntil !== 0 && daysUntil !== REMIND_DAYS) return;
-
-  const kind: "reminder" | "payday" = daysUntil === 0 ? "payday" : "reminder";
-  const eventKey = `${ev.month}:${ev.kind}:${ev.actual}`;
-  const isNew = await tryMarkNotification(from.id, eventKey, kind).catch(() => false);
-  if (!isNew) return;
-
-  const half = Math.round(profile.salaryCents / 2);
-  let otCents = 0;
-  if (ev.kind === "26th") {
-    const [y, m] = ev.month.split("-").map(Number);
-    otCents = (await getOtMonthTotals(from.id, y, m)).amountCents;
-  }
-  const breakdown = {
-    ev,
-    halfCents: ev.kind === "12th" ? half : profile.salaryCents - half,
-    otCents,
-  };
-
-  let text: string;
-  let plain = false;
-  if (process.env.GEMINI_API_KEY) {
-    const ai = await aiReminderText({ p: profile, breakdown, daysUntil }).catch(() => null);
-    if (ai) {
-      text = ai;
-      plain = true;
-    } else {
-      text = paydayNotificationText(profile, breakdown, daysUntil);
-    }
-  } else {
-    text = paydayNotificationText(profile, breakdown, daysUntil);
-  }
-
-  await bot.api
-    .sendMessage(from.id, text, { parse_mode: plain ? undefined : "HTML" })
-    .catch(() => {});
-}
-
-// ---------------------------------------------------------------------------
 // Free-text input for guided flows (OT date/time + salary amount)
 // ---------------------------------------------------------------------------
 bot.on("message:text", async (ctx) => {
   const from = ctx.from;
   if (!from) return;
-  await maybeNudge(ctx).catch(() => {});
   const st = await getConversation(from.id).catch(() => null);
   if (!st) return;
   const text = ctx.message.text.trim();

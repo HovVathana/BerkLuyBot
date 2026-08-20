@@ -145,7 +145,7 @@ Pick one (both are free):
 1. Create the workflow in this repo (already included).
 2. Set repo **Secrets** → `PAYDAY_CRON_SECRET` (same value as Vercel's `CRON_SECRET`).
 3. Set repo **Variables** → `VERCEL_DEPLOY_URL` (e.g. `https://your-app.vercel.app`).
-4. It runs daily at 01:00 UTC (08:00 UTC+7) — adjust `cron:` in the YAML to match your timezone.
+4. It runs daily at 06:00 UTC (13:00 UTC+7) — adjust `cron:` in the YAML to match your timezone.
 
 **Vercel Cron (alternative):** `vercel.json` already defines a cron for `/api/payday`;
 Vercel will send `Authorization: Bearer $CRON_SECRET` automatically. Remove the `crons`

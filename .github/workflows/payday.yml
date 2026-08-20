@@ -1,12 +1,12 @@
 name: Payday Reminders
 
 # Free GitHub-hosted scheduler that "nudges" users before/on payday.
-# It calls the Vercel endpoint every day at 01:00 UTC (= 08:00 in UTC+7,
+# It calls the Vercel endpoint every day at 06:00 UTC (= 13:00 in UTC+7,
 # adjust this to match your TZ).
 
 on:
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch: {}
 
 jobs:
