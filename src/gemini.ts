@@ -67,8 +67,8 @@ function buildPrompt(c: ReminderContext): string {
     "Make it FUNNY: over-the-top sarcasm, tease them hard about surviving, spending, or staring at the bank app. Never mean.",
     "2–3 emoji maximum. No markdown, no HTML, no quotes — plain text only.",
     isToday
-      ? "Today is payday: joke about being rich for 10 minutes."
-      : "Tease them about holding on until the big day.",
+      ? "Today is payday: no day count needed — joke about being rich for 10 minutes."
+      : `Your message MUST open by stating the days remaining in Khmer, e.g. "នៅសល់តែបីថ្ងៃទៀត!" for ${daysUntil} days — then tease them about holding on until the big day. Khmer count words: 1=មួយ 2=ពីរ 3=បី 4=បួន 5=ប្រាំ 6=ប្រាំមួយ 7=ប្រាំពីរ 8=ប្រាំបី 9=ប្រាំបួន 10=ដប់.`,
   ].join("\n");
 }
 
