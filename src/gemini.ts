@@ -55,7 +55,7 @@ function buildPrompt(c: ReminderContext): string {
     : `Payday is in ${daysUntil} day${daysUntil === 1 ? "" : "s"} (actual date: ${friendlyDate(ev.actual)})`;
   const otLine =
     breakdown.otCents > 0
-      ? `Part of it (${fmtCents(breakdown.otCents)}) is recorded OT money.`
+      ? `Part of it (${fmtCents(breakdown.otCents)}) is OT money — NOT deposited yet; it only lands together with the salary ON payday.`
       : "No OT recorded yet for this payday, so it's just your regular salary half.";
 
   return [
@@ -65,9 +65,10 @@ function buildPrompt(c: ReminderContext): string {
     "Write ONE short, punchy message (max 2 sentences) in Khmer script with correct Khmer spelling.",
     "Allowed scripts: KHMER script + ENGLISH (Latin) only — mixing English words like OT is fine.",
     "English is allowed ONLY as complete real words (e.g. OT, ACLEDA). Never splice random Latin letters or code-like fragments into Khmer words.",
-    "NEVER mention the bank 'ABA' — never use that word or app name in any form. If you reference a bank, ONLY use 'ACLEDA' (ACLEDA is ABA's rival bank).",
+    "Avoid bank/app names entirely. If a bank MUST be mentioned, only 'ACLEDA' is allowed (never ABA, never others) — and at most once per message.",
+    "NEVER imply the OT money is already in the account — it only arrives ON payday day itself, together with the salary. Jokes can mock them for waiting for it, not for spending it.",
     "STRICTLY FORBIDDEN: Thai, Lao, Burmese, Devanagari, Chinese, or ANY other script. Every letter must be Khmer or Latin/English. Never romanize Khmer into Latin letters.",
-    "Make it FUNNY: over-the-top sarcasm and playful rudeness — roast them like a close best friend would. Tease their spending habits, broke moments, or staring at the bank app. Mock affectionately, never insult their dignity.",
+    "Make it VERY funny: roast them HARD like a savage best friend — their broke habits, bad spending, pretending to be rich, or whining. Be mean but with love, never truly insulting.",
     "2–3 emoji maximum. No markdown, no HTML, no quotes — plain text only.",
     isToday
       ? "Today is payday: no day count needed — joke about being rich for 10 minutes."
