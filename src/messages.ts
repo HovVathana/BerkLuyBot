@@ -11,13 +11,13 @@ export function salaryText(p: Profile): string {
   const lines = [
     "<b>💼 Your salary &amp; rates</b>",
     "",
-    `Monthly salary: ${fmtCents(s)}`,
-    `Base hourly: ${fmtCents(baseHourlyCents(s))}/h`,
+    `Monthly salary  <b>${fmtCents(s)}</b>`,
+    `Base hourly    <b>${fmtCents(baseHourlyCents(s))}/h</b>`,
     "",
     "<b>OT hourly rates</b>",
-    `▸ D • Holiday (100%)  ${fmtCents(otRateCents(s, "D"))}/h`,
-    `▸ N • Evening (150%)  ${fmtCents(otRateCents(s, "N"))}/h`,
-    `▸ A • Weekend (200%)  ${fmtCents(otRateCents(s, "A"))}/h`,
+    `▸ D · Holiday (100%)   <b>${fmtCents(otRateCents(s, "D"))}/h</b>`,
+    `▸ N · Evening (150%)   <b>${fmtCents(otRateCents(s, "N"))}/h</b>`,
+    `▸ A · Weekend (200%)   <b>${fmtCents(otRateCents(s, "A"))}/h</b>`,
     "",
     "Paydays are the 12th and 26th, moved to the previous working day when they fall on a weekend or public holiday.",
   ];
@@ -40,13 +40,13 @@ export function monthText(
   const lines = [
     `<b>📊 Salary &amp; OT — ${monthLabel(monthKey)}</b>`,
     "",
-    `Salary: ${fmtCents(s)}`,
-    `OT records: ${totals.count}`,
-    `OT hours (paid): ${fmtHours(totals.paidHours)}`,
-    `OT earnings: ${fmtCents(otAmt)}`,
+    `Salary        <b>${fmtCents(s)}</b>`,
+    `OT records    <b>${totals.count}</b>`,
+    `OT hours      <b>${fmtHours(totals.paidHours)}</b>`,
+    `OT earnings   <b>${fmtCents(otAmt)}</b>`,
     "",
-    `◽ 12th payday: ${fmtCents(got12)}  (salary half)`,
-    `◾ 26th payday: ${fmtCents(got26)}  (half + OT)`,
+    `◽ 12th payday  <b>${fmtCents(got12)}</b>  (salary half)`,
+    `◾ 26th payday  <b>${fmtCents(got26)}</b>  (half + OT)`,
     "",
     `<b>💰 Expected total: ${fmtCents(expected)}</b>`,
   ];
@@ -59,22 +59,25 @@ export function otListText(
   totals: MonthTotals,
 ): string {
   if (records.length === 0) {
-    return `No OT records for ${monthLabel(monthKey)}. Record one with /ot.`;
+    return `No OT records for ${monthLabel(monthKey)} yet.\nRecord one with /ot.`;
   }
   const lines = records.map((r, i) => {
     const times = `${r.startTime}–${r.endTime}`;
     const breakNote =
       r.breakHours > 0 ? ` (incl. ${fmtHours(r.breakHours)}h break)` : "";
-    return `#${i + 1} • ${friendlyDate(r.date)} · ${esc(OT_NAMES[r.otType])}\n  ${times} → ${fmtHours(r.paidHours)}h${breakNote} × ${fmtCents(r.rateCents)}/h = ${fmtCents(r.amountCents)}`;
+    return (
+      `<b>#${i + 1}</b> · ${friendlyDate(r.date)} · ${esc(OT_NAMES[r.otType])}\n` +
+      `   ${times} → <b>${fmtHours(r.paidHours)}h</b>${breakNote} × ${fmtCents(r.rateCents)}/h = <b>${fmtCents(r.amountCents)}</b>`
+    );
   });
   return [
     `<b>📋 OT records — ${monthLabel(monthKey)}</b>`,
     "",
     ...lines,
     "",
-    `✨ Totals: ${totals.count} records · ${fmtHours(totals.paidHours)}h paid · ${fmtCents(totals.amountCents)}`,
+    `✨ Totals: <b>${totals.count}</b> records · <b>${fmtHours(totals.paidHours)}h</b> paid · <b>${fmtCents(totals.amountCents)}</b>`,
     "",
-    "Delete one with /del &lt;index&gt; (e.g. /del 3), optionally /del &lt;index&gt; YYYY-MM.",
+    "Delete one with <b>/del &lt;index&gt;</b> (e.g. /del 3), optionally /del &lt;index&gt; YYYY-MM.",
   ].join("\n");
 }
 
@@ -83,15 +86,15 @@ export function otPreviewText(state: OtState, p: Profile): string {
   const lines = [
     "<b>🧾 Confirm OT entry</b>",
     "",
-    `Type: ${OT_NAMES[state.otType!]}`,
-    `Date: ${friendlyDate(state.date!)}`,
-    `Time: ${state.startTime}–${state.endTime}`,
-    `Duration: ${fmtHours(c.hours)}h`,
-    c.breakHours > 0 ? `Break: -${fmtHours(c.breakHours)}h` : "",
-    `Paid hours: ${fmtHours(c.paidHours)}h`,
-    `Rate: ${fmtCents(c.rateCents)}/h`,
+    `Type: <b>${OT_NAMES[state.otType!]}</b>`,
+    `Date: <b>${friendlyDate(state.date!)}</b>`,
+    `Time: <b>${state.startTime}–${state.endTime}</b>`,
+    `Duration: <b>${fmtHours(c.hours)}h</b>`,
+    c.breakHours > 0 ? `Break: <b>−${fmtHours(c.breakHours)}h</b>` : "",
+    `Paid hours: <b>${fmtHours(c.paidHours)}h</b>`,
+    `Rate: <b>${fmtCents(c.rateCents)}/h</b>`,
     "",
-    `<b>Amount: ${fmtCents(c.amountCents)}</b>`,
+    `<b>💰 Amount: ${fmtCents(c.amountCents)}</b>`,
   ].filter(Boolean);
   return lines.join("\n");
 }
@@ -99,8 +102,8 @@ export function otPreviewText(state: OtState, p: Profile): string {
 export function otSavedText(record: OtRecord): string {
   return [
     `<b>✅ Saved OT #${record.id}</b>`,
-    `${OT_NAMES[record.otType]} • ${friendlyDate(record.date)}`,
-    `${record.startTime}–${record.endTime} → ${fmtHours(record.paidHours)}h paid × ${fmtCents(record.rateCents)}/h = ${fmtCents(record.amountCents)}`,
+    `${OT_NAMES[record.otType]} · ${friendlyDate(record.date)}`,
+    `${record.startTime}–${record.endTime} → <b>${fmtHours(record.paidHours)}h</b> paid × ${fmtCents(record.rateCents)}/h = <b>${fmtCents(record.amountCents)}</b>`,
   ].join("\n");
 }
 
@@ -115,18 +118,18 @@ export function paydayBreakdownText(b: PaydayBreakdown): string {
   const lines = [
     `<b>${b.ev.kind === "12th" ? "📅 12th" : "📆 26th"} payday</b>`,
     `Scheduled: ${friendlyDate(b.ev.scheduled)}`,
-    `Actual: ${friendlyDate(b.ev.actual)}`,
-    `Salary (half): ${fmtCents(b.halfCents)}`,
+    `Actual: <b>${friendlyDate(b.ev.actual)}</b>`,
+    `Salary (half): <b>${fmtCents(b.halfCents)}</b>`,
   ];
   if (b.otCents > 0) {
-    lines.push(`OT (${monthLabel(b.ev.month)}): ${fmtCents(b.otCents)}`);
+    lines.push(`OT (${monthLabel(b.ev.month)}): <b>${fmtCents(b.otCents)}</b>`);
   }
   lines.push(`<b>💰 Payout: ${fmtCents(total)}</b>`);
   return lines.join("\n");
 }
 
 export function paydayCoverText(p: Profile): string {
-  return `<b>💰 Upcoming paydays</b>\nSalary: ${fmtCents(p.salaryCents!)}`;
+  return `<b>💰 Upcoming paydays</b>\nSalary: <b>${fmtCents(p.salaryCents!)}</b>`;
 }
 
 export function paydayNotificationText(
@@ -142,13 +145,13 @@ export function paydayNotificationText(
 
   const lines = [
     head,
-    `Actual payday: ${friendlyDate(b.ev.actual)}`,
+    `Actual payday: <b>${friendlyDate(b.ev.actual)}</b>`,
     `It was scheduled for ${shortDate(b.ev.scheduled)}${b.ev.actual !== b.ev.scheduled ? " (moved from a weekend/holiday)" : ""}.`,
     "",
-    `Salary (half): ${fmtCents(b.halfCents)}`,
+    `Salary (half): <b>${fmtCents(b.halfCents)}</b>`,
   ];
   if (b.otCents > 0) {
-    lines.push(`OT (${monthLabel(b.ev.month)}): ${fmtCents(b.otCents)}`);
+    lines.push(`OT (${monthLabel(b.ev.month)}): <b>${fmtCents(b.otCents)}</b>`);
   }
   lines.push(`<b>💰 Total: ${fmtCents(total)}</b>`);
   lines.push("", isToday
