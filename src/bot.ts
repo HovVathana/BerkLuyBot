@@ -501,7 +501,9 @@ async function maybeNudge(ctx: Context): Promise<void> {
   const ev = nextPaydayEvent(today);
   if (!ev) return;
   const daysUntil = dayDiff(today, ev.actual);
-  if (daysUntil < 0 || daysUntil > REMIND_DAYS) return;
+  // Only fire on the exact trigger day (payday itself or exactly
+  // REMIND_DAYS_BEFORE days before); any other day → nothing.
+  if (daysUntil !== 0 && daysUntil !== REMIND_DAYS) return;
 
   const kind: "reminder" | "payday" = daysUntil === 0 ? "payday" : "reminder";
   const eventKey = `${ev.month}:${ev.kind}:${ev.actual}`;

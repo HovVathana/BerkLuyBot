@@ -54,12 +54,16 @@ export default async function handler(
         continue;
       }
       const daysUntil = dayDiff(today, ev.actual);
-      if (daysUntil < 0 || daysUntil > REMIND_DAYS) {
+      // Act ONLY on the exact trigger day: the payday itself, or exactly
+      // REMIND_DAYS_BEFORE days before it. Any other day → do nothing.
+      const isPayday = daysUntil === 0;
+      const isReminder = daysUntil === REMIND_DAYS;
+      if (!isPayday && !isReminder) {
         skipped++;
         continue;
       }
 
-      const kind: "reminder" | "payday" = daysUntil === 0 ? "payday" : "reminder";
+      const kind: "reminder" | "payday" = isPayday ? "payday" : "reminder";
 
       // 12th pays half the salary; the 26th pays the other half + that month's OT.
       const half = Math.round(p.salaryCents! / 2);
