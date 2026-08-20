@@ -12,7 +12,7 @@ import {
   setSalary,
 } from "./storage.js";
 import { computeOt, OT_NAMES, parseSalaryToCents, parseTimes, baseHourlyCents } from "./payroll.js";
-import { fmtDay, monthLabel, parseDay, paydayEvents, todayInTz } from "./payday.js";
+import { fmtDay, friendlyDate, monthLabel, parseDay, paydayEvents, todayInTz } from "./payday.js";
 import {
   monthText,
   otListText,
@@ -309,13 +309,24 @@ async function cmdPayday(ctx: Context): Promise<unknown> {
 
 async function cmdDel(ctx: Context): Promise<unknown> {
   const from = ctx.from!;
-  const id = Number(argOf(ctx));
-  if (!Number.isInteger(id) || id <= 0) {
-    return ctx.reply("Usage: /del &lt;record id&gt;. Find an id with /otlist.");
+  const parts = argOf(ctx).split(/\s+/).filter(Boolean);
+  const n = Number(parts[0]);
+  if (!Number.isInteger(n) || n <= 0) {
+    return ctx.reply("Usage: /del &lt;index&gt; (e.g. /del 3) or /del &lt;index&gt; YYYY-MM. Indices come from /otlist.");
   }
-  const ok = await deleteOtRecord(from.id, id);
-  if (ok) return ctx.reply(`🗑️ Deleted OT record #${id}.`);
-  return ctx.reply("Couldn't delete that record (it doesn't exist or isn't yours).");
+  const monthKey = parseMonthArg(parts[1]) ?? todayInTz(TZ).slice(0, 7);
+  const [y, m] = monthKey.split("-").map(Number);
+  const records = await getOtRecords(from.id, y, m);
+  const rec = records[n - 1];
+  if (!rec) {
+    return ctx.reply(
+      `Index ${n} is out of range — ${monthLabel(monthKey)} has ${records.length} record${records.length === 1 ? "" : "s"} (indices 1–${records.length}).`,
+    );
+  }
+  await deleteOtRecord(from.id, rec.id);
+  return ctx.reply(
+    `🗑️ Deleted OT #${n} • ${friendlyDate(rec.date)} · ${OT_NAMES[rec.otType]}, ${fmtCents(rec.amountCents)}.`,
+  );
 }
 
 async function cmdCancel(ctx: Context): Promise<unknown> {

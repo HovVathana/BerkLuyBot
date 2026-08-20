@@ -129,7 +129,7 @@ async function getOtRecords(userId: number, year: number, month: number): Promis
       userId: uid(userId),
       date: { gte: `${key}-01`, lte: `${key}-31` },
     },
-    orderBy: [{ date: "desc" }, { id: "desc" }],
+    orderBy: [{ date: "asc" }, { id: "asc" }],
   });
   return rows.map(mapOtRecord);
 }

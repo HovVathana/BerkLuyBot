@@ -61,11 +61,11 @@ export function otListText(
   if (records.length === 0) {
     return `No OT records for ${monthLabel(monthKey)}. Record one with /ot.`;
   }
-  const lines = records.map((r) => {
+  const lines = records.map((r, i) => {
     const times = `${r.startTime}–${r.endTime}`;
     const breakNote =
       r.breakHours > 0 ? ` (incl. ${fmtHours(r.breakHours)}h break)` : "";
-    return `#<code>${r.id}</code> • ${friendlyDate(r.date)} · ${esc(OT_NAMES[r.otType])}\n  ${times} → ${fmtHours(r.paidHours)}h${breakNote} × ${fmtCents(r.rateCents)}/h = ${fmtCents(r.amountCents)}`;
+    return `#${i + 1} • ${friendlyDate(r.date)} · ${esc(OT_NAMES[r.otType])}\n  ${times} → ${fmtHours(r.paidHours)}h${breakNote} × ${fmtCents(r.rateCents)}/h = ${fmtCents(r.amountCents)}`;
   });
   return [
     `<b>📋 OT records — ${monthLabel(monthKey)}</b>`,
@@ -74,7 +74,7 @@ export function otListText(
     "",
     `✨ Totals: ${totals.count} records · ${fmtHours(totals.paidHours)}h paid · ${fmtCents(totals.amountCents)}`,
     "",
-    "Delete one with /del &lt;id&gt; (e.g. /del 12).",
+    "Delete one with /del &lt;index&gt; (e.g. /del 3), optionally /del &lt;index&gt; YYYY-MM.",
   ].join("\n");
 }
 
