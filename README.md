@@ -118,8 +118,10 @@ Set these **Environment Variables** in the Vercel project (Settings → Environm
 | `DATABASE_URL_DIRECT` | `postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres` |
 | `CRON_SECRET` | any long random string |
 | `APP_TZ` | `Asia/Phnom_Penh` (default) |
-| `REMIND_DAYS_BEFORE` | `3` (default) |
+| `REMIND_DAYS_BEFORE` | `5` (default) |
 | `TELEGRAM_SECRET_TOKEN` | optional webhook lock |
+| `GEMINI_API_KEY` | optional — enables AI payday reminders in Khmer |
+| `GEMINI_MODELS` | optional — comma-separated fallbacks, e.g. `gemini-flash-latest,gemini-flash-lite-latest,gemini-2.0-flash-lite` (first that responds wins) |
 
 `npm install` runs `prisma generate` automatically (see `postinstall`), so Vercel's build
 generates the client with the right Prisma engines for its runtime.
@@ -152,7 +154,10 @@ block from `vercel.json` if you use GitHub Actions instead.
 The nudge will remind a user when the next **actual** payday is within
 `REMIND_DAYS_BEFORE` days, and send a "Payday is TODAY 💰" message with the breakdown
 (scheduled date, actual date, salary half, OT amount, total) on the day itself.
-Notifications are deduplicated in the database.
+When `GEMINI_API_KEY` is set, Gemini writes the reminder in Khmer with a funny,
+playful-sarcastic tone and emoji; if the API is unreachable or every model in
+`GEMINI_MODELS` fails, it falls back to the standard message. Notifications are
+deduplicated in the database.
 
 ## Local development
 
