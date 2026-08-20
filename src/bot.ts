@@ -15,7 +15,7 @@ import {
   setSavingGoal,
 } from "./storage.js";
 import { computeOt, OT_NAMES, parseSalaryToCents, parseTimes, baseHourlyCents } from "./payroll.js";
-import { fmtDay, friendlyDate, monthLabel, parseDay, paydayEvents, todayInTz } from "./payday.js";
+import { fmtDay, friendlyDate, monthLabel, parseDay, paydayEvents, prevMonthKey, todayInTz } from "./payday.js";
 import {
   goalText,
   monthText,
@@ -290,7 +290,9 @@ async function cmdMonth(ctx: Context): Promise<unknown> {
   const monthKey = parseMonthArg(argOf(ctx)) ?? todayInTz(TZ).slice(0, 7);
   const [y, m] = monthKey.split("-").map(Number);
   const totals = await getOtMonthTotals(from.id, y, m);
-  return replySensitive(ctx, monthText(profile, monthKey, totals));
+  const [py, pm] = prevMonthKey(monthKey).split("-").map(Number);
+  const payoutOt = await getOtMonthTotals(from.id, py, pm);
+  return replySensitive(ctx, monthText(profile, monthKey, totals, payoutOt));
 }
 
 async function cmdPayday(ctx: Context): Promise<unknown> {
@@ -311,8 +313,8 @@ async function cmdPayday(ctx: Context): Promise<unknown> {
   for (const ev of events) {
     let ot = 0;
     if (ev.kind === "26th") {
-      const [y, m] = ev.month.split("-").map(Number);
-      ot = (await getOtMonthTotals(from.id, y, m)).amountCents;
+      const [py, pm] = prevMonthKey(ev.month).split("-").map(Number);
+      ot = (await getOtMonthTotals(from.id, py, pm)).amountCents;
     }
     blocks.push({ ev, halfCents: half, otCents: ot });
   }
@@ -326,13 +328,16 @@ async function cmdGoal(ctx: Context): Promise<unknown> {
   const arg = argOf(ctx).toLowerCase();
   const profile = await getProfile(from.id);
   const today = todayInTz(TZ);
-  const [y, m] = today.split("-").map(Number);
+  const [yt, mt] = today.split("-").map(Number);
+  const m = mt === 1 ? 12 : mt - 1;
+  const y = mt === 1 ? yt - 1 : yt;
+  const prevMonthKey = `${y}-${String(m).padStart(2, "0")}`;
   const progress =
     (await getSavingProgress(from.id, y, m).catch(() => null)) ?? {
       goalCents: profile?.savingGoalCents ?? 0,
       earnedCents: 0,
       count: 0,
-      monthKey: today.slice(0, 7),
+      monthKey: prevMonthKey,
     };
   if (profile?.savingGoalCents) {
     const view: GoalView = progress;
@@ -360,7 +365,7 @@ async function cmdGoal(ctx: Context): Promise<unknown> {
     await setSavingGoal(from.id, cents).catch(() => {});
     return replySensitive(
       ctx,
-      `✅ <b>OT savings goal: ${fmtCents(cents)}</b>\n\nEvery OT dollar this month counts toward it — resets on the 1st, paid with the 26th. Record hours with /ot.`,
+      `✅ <b>OT savings goal: ${fmtCents(cents)}</b>\n\nOT you log this month is paid on the 26th of next month — the goal tracks each month's payout. Record hours with /ot.`,
     );
   }
   const state: OtState = { flow: "goal", step: "goal" };
@@ -563,7 +568,7 @@ bot.on("message:text", async (ctx) => {
       await setSavingGoal(from.id, cents).catch(() => {});
       return replySensitive(
         ctx,
-        `🎯 <b>OT savings goal: ${fmtCents(cents)}</b>\n\nEvery OT dollar this month counts toward it — resets on the 1st, paid with the 26th. Record hours with /ot.`,
+        `🎯 <b>OT savings goal: ${fmtCents(cents)}</b>\n\nOT you log this month is paid on the 26th of next month — the goal tracks each month's payout. Record hours with /ot.`,
       );
     }
     return applySalary(ctx, from.id, cents);

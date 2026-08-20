@@ -1,5 +1,5 @@
 import { esc, fmtCents, fmtHours } from "./format.js";
-import { friendlyDate, monthLabel, shortDate } from "./payday.js";
+import { friendlyDate, monthLabel, prevMonthKey, shortDate } from "./payday.js";
 import { baseHourlyCents, OT_NAMES, otRateCents } from "./payroll.js";
 import type {
   CalendarEvent,
@@ -23,7 +23,7 @@ export function goalText(g: GoalView): string {
       ? `✅ <b>Goal reached!</b> Treat yourself — you earned it. 🎉`
       : `Remaining: <b>${fmtCents(g.goalCents - g.earnedCents)}</b> · Keep logging those OT hours! 💪`,
     "",
-    `Counting <b>${monthLabel(g.monthKey)}</b>'s OT: <b>${g.count}</b> record${g.count === 1 ? "" : "s"} — paid with the 26th paycheck, resets on the 1st.`,
+    `Counting <b>${monthLabel(g.monthKey)}</b>'s OT (paid with the 26th): <b>${g.count}</b> record${g.count === 1 ? "" : "s"}. Resets every month.`,
   ].join("\n");
 }
 
@@ -49,11 +49,12 @@ export function monthText(
   p: Profile,
   monthKey: string,
   totals: MonthTotals,
+  payoutOt: MonthTotals,
 ): string {
   const s = p.salaryCents!;
   const half = Math.round(s / 2);
   const otherHalf = s - half;
-  const otAmt = totals.amountCents;
+  const otAmt = payoutOt.amountCents;
   const got12 = Math.round(s / 2);
   const got26 = otherHalf + otAmt;
   const expected = s + otAmt;
@@ -64,7 +65,7 @@ export function monthText(
     `Salary        <b>${fmtCents(s)}</b>`,
     `OT records    <b>${totals.count}</b>`,
     `OT hours      <b>${fmtHours(totals.paidHours)}</b>`,
-    `OT earnings   <b>${fmtCents(otAmt)}</b>`,
+    `OT earnings   <b>${fmtCents(otAmt)}</b>  (${monthLabel(prevMonthKey(monthKey))}'s OT)`,
     "",
     `◽ 12th payday  <b>${fmtCents(got12)}</b>  (salary half)`,
     `◾ 26th payday  <b>${fmtCents(got26)}</b>  (half + OT)`,

@@ -1,5 +1,5 @@
 import { fmtCents } from "./format.js";
-import { friendlyDate } from "./payday.js";
+import { friendlyDate, monthLabel, prevMonthKey } from "./payday.js";
 import type { PaydayBreakdown } from "./messages.js";
 import type { Profile } from "./types.js";
 
@@ -13,7 +13,7 @@ interface ReminderContext {
   p: Profile;
   breakdown: PaydayBreakdown;
   daysUntil: number;
-  goal?: { goalCents: number; earnedCents: number } | null;
+  goal?: { goalCents: number; earnedCents: number; count: number } | null;
 }
 
 async function callModel(model: string, prompt: string): Promise<string | null> {
@@ -56,15 +56,15 @@ function buildPrompt(c: ReminderContext): string {
     : `Payday is in ${daysUntil} day${daysUntil === 1 ? "" : "s"} (actual date: ${friendlyDate(ev.actual)})`;
   const otLine =
     breakdown.otCents > 0
-      ? `Part of it (${fmtCents(breakdown.otCents)}) is OT money — NOT deposited yet; it only lands together with the salary ON payday.`
-      : "No OT recorded yet for this payday, so it's just your regular salary half.";
+      ? `Part of it (${fmtCents(breakdown.otCents)}) is OT money from ${monthLabel(prevMonthKey(ev.month))}'s OT days — NOT deposited yet; it only lands together with the salary ON payday.`
+      : "No OT recorded for last month, so it's just your regular salary half (or don't mention OT at all).";
 
   return [
     "You are a cheeky, sarcastic personal finance bot for a Cambodian office worker.",
     `The user's last name is "${name}" — address them by that name in ENGLISH letters exactly as written (e.g. "Chea!"); never transliterate or translate the name into Khmer. ${dateLine} (${ev.kind === "12th" ? "12th" : "26th"} payday).`,
     `Their salary half is ${fmtCents(breakdown.halfCents)}, total payout about ${total}. ${otLine}`,
-    goal
-      ? `They also have an OT savings goal of ${fmtCents(goal.goalCents)}, with ${fmtCents(goal.earnedCents)} saved so far.`
+    goal && goal.count > 0
+      ? `They also have an OT savings goal of ${fmtCents(goal.goalCents)}, with ${fmtCents(goal.earnedCents)} saved from this month's OT payout (last month's OT days).`
       : "",
     "Write ONE short, punchy message (max 2 sentences) in Khmer script with correct Khmer spelling.",
     "Allowed scripts: KHMER script + ENGLISH (Latin) only — mixing English words like OT is fine.",
@@ -73,7 +73,7 @@ function buildPrompt(c: ReminderContext): string {
     "NEVER imply the OT money is already in the account — it only arrives ON payday day itself, together with the salary. Jokes can mock them for waiting for it, not for spending it.",
     "STRICTLY FORBIDDEN: Thai, Lao, Burmese, Devanagari, Chinese, or ANY other script. Every letter must be Khmer or Latin/English. Never romanize Khmer into Latin letters.",
     "Make it VERY funny: roast them HARD like a savage best friend — their broke habits, bad spending, pretending to be rich, or whining. Be mean but with love, never truly insulting.",
-    goal
+    goal && goal.count > 0
       ? "If they have a savings goal, judge their progress playfully — groan if it's still far off, hype them up if they're close."
       : "",
     "2–3 emoji maximum. No markdown, no HTML, no quotes — plain text only.",

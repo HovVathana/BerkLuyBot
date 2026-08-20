@@ -33,6 +33,15 @@ export function nextMonthKey(month: string): string {
   return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
 }
 
+/**
+ * The month whose OT days are PAID by this month's 26th payout:
+ * money arriving in August is July's OT work.
+ */
+export function prevMonthKey(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+}
+
 export function addDays(date: string, n: number): string {
   const d = parseDay(date);
   d.setUTCDate(d.getUTCDate() + n);

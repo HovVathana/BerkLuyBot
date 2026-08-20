@@ -1,4 +1,4 @@
-import { dayDiff, nextPaydayEvent, todayInTz } from "../src/payday.js";
+import { dayDiff, nextPaydayEvent, prevMonthKey, todayInTz } from "../src/payday.js";
 import { getOtMonthTotals, getSavingProgress, listProfilesWithSalary, tryMarkNotification } from "../src/storage.js";
 import { paydayNotificationText } from "../src/messages.js";
 import { aiReminderText } from "../src/gemini.js";
@@ -93,8 +93,9 @@ export default async function handler(
 
       let otCents = 0;
       if (ev.kind === "26th") {
-        const [y, m] = ev.month.split("-").map(Number);
-        otCents = (await getOtMonthTotals(p.userId, y, m)).amountCents;
+        // The 26th pays LAST month's OT days (July's work → August's money).
+        const [py, pm] = prevMonthKey(ev.month).split("-").map(Number);
+        otCents = (await getOtMonthTotals(p.userId, py, pm)).amountCents;
       }
 
       const breakdown: PaydayBreakdown = {
@@ -105,8 +106,15 @@ export default async function handler(
 
       // AI writes a funny, sarcastic Khmer nudge; fall back to the standard
       // reminder whenever AI is disabled or every configured model fails.
+      // OT days from LAST month are the money paid out THIS month (on the
+      // 26th). Goal context is only relevant for the 26th payout.
       const [yt, mt] = today.split("-").map(Number);
-      const goal = await getSavingProgress(p.userId, yt, mt).catch(() => null);
+      const pm = mt === 1 ? 12 : mt - 1;
+      const py = mt === 1 ? yt - 1 : yt;
+      const goal =
+        ev.kind === "26th"
+          ? await getSavingProgress(p.userId, py, pm).catch(() => null)
+          : null;
       let text: string;
       let plain = false;
       if (USE_AI) {
