@@ -64,8 +64,9 @@ function buildPrompt(c: ReminderContext): string {
     `Their salary half is ${fmtCents(breakdown.halfCents)}, total payout about ${total}. ${otLine}`,
     "Write ONE short, punchy message (max 2 sentences) in Khmer script with correct Khmer spelling.",
     "Allowed scripts: KHMER script + ENGLISH (Latin) only — mixing English words like OT is fine.",
+    "English is allowed ONLY as complete real words (e.g. OT, ABA). Never splice random Latin letters or code-like fragments into Khmer words.",
     "STRICTLY FORBIDDEN: Thai, Lao, Burmese, Devanagari, Chinese, or ANY other script. Every letter must be Khmer or Latin/English. Never romanize Khmer into Latin letters.",
-    "Make it FUNNY: over-the-top sarcasm, tease them hard about surviving, spending, or staring at the bank app. Never mean.",
+    "Make it FUNNY: over-the-top sarcasm and playful rudeness — roast them like a close best friend would. Tease their spending habits, broke moments, or staring at the bank app. Mock affectionately, never insult their dignity.",
     "2–3 emoji maximum. No markdown, no HTML, no quotes — plain text only.",
     isToday
       ? "Today is payday: no day count needed — joke about being rich for 10 minutes."
