@@ -103,6 +103,8 @@ function helpText(): string {
     "<b>/cancel</b> — cancel the current entry",
     "",
     "Quick OT: <b>/ot A 09:00-17:00</b> or <b>/ot A 2026-08-16 09:00-17:00</b>",
+    "",
+    "📆 OT is paid on the <b>26th of the next month</b> (July's OT → August's 26th payday, along with the salary half).",
   ].join("\n");
 }
 
@@ -309,14 +311,17 @@ async function cmdPayday(ctx: Context): Promise<unknown> {
     .slice(0, 2);
 
   const half = Math.round(profile.salaryCents / 2);
-  const blocks: { ev: (typeof events)[number]; halfCents: number; otCents: number }[] = [];
+  const blocks: { ev: (typeof events)[number]; halfCents: number; otCents: number; otCount: number }[] = [];
   for (const ev of events) {
     let ot = 0;
+    let otCount = 0;
     if (ev.kind === "26th") {
       const [py, pm] = prevMonthKey(ev.month).split("-").map(Number);
-      ot = (await getOtMonthTotals(from.id, py, pm)).amountCents;
+      const totals = await getOtMonthTotals(from.id, py, pm);
+      ot = totals.amountCents;
+      otCount = totals.count;
     }
-    blocks.push({ ev, halfCents: half, otCents: ot });
+    blocks.push({ ev, halfCents: half, otCents: ot, otCount });
   }
   const text = [paydayCoverText(profile), "", ...blocks.map((b) => paydayBreakdownText(b))].join("\n");
   return replySensitive(ctx, text);
@@ -331,13 +336,13 @@ async function cmdGoal(ctx: Context): Promise<unknown> {
   const [yt, mt] = today.split("-").map(Number);
   const m = mt === 1 ? 12 : mt - 1;
   const y = mt === 1 ? yt - 1 : yt;
-  const prevMonthKey = `${y}-${String(m).padStart(2, "0")}`;
+  const prevMonth = `${y}-${String(m).padStart(2, "0")}`;
   const progress =
     (await getSavingProgress(from.id, y, m).catch(() => null)) ?? {
       goalCents: profile?.savingGoalCents ?? 0,
       earnedCents: 0,
       count: 0,
-      monthKey: prevMonthKey,
+      monthKey: prevMonth,
     };
   if (profile?.savingGoalCents) {
     const view: GoalView = progress;

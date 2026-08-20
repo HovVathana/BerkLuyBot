@@ -92,16 +92,20 @@ export default async function handler(
       }
 
       let otCents = 0;
+      let otCount = 0;
       if (ev.kind === "26th") {
         // The 26th pays LAST month's OT days (July's work → August's money).
         const [py, pm] = prevMonthKey(ev.month).split("-").map(Number);
-        otCents = (await getOtMonthTotals(p.userId, py, pm)).amountCents;
+        const totals = await getOtMonthTotals(p.userId, py, pm);
+        otCents = totals.amountCents;
+        otCount = totals.count;
       }
 
       const breakdown: PaydayBreakdown = {
         ev,
         halfCents: ev.kind === "12th" ? half : otherHalf,
         otCents,
+        otCount,
       };
 
       // AI writes a funny, sarcastic Khmer nudge; fall back to the standard

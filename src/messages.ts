@@ -59,13 +59,16 @@ export function monthText(
   const got26 = otherHalf + otAmt;
   const expected = s + otAmt;
 
+  const otLabel =
+    payoutOt.count > 0 ? `${monthLabel(prevMonthKey(monthKey))}'s OT` : "no data";
+
   const lines = [
     `<b>📊 Salary &amp; OT — ${monthLabel(monthKey)}</b>`,
     "",
     `Salary        <b>${fmtCents(s)}</b>`,
     `OT records    <b>${totals.count}</b>`,
     `OT hours      <b>${fmtHours(totals.paidHours)}</b>`,
-    `OT earnings   <b>${fmtCents(otAmt)}</b>  (${monthLabel(prevMonthKey(monthKey))}'s OT)`,
+    `OT earnings   <b>${fmtCents(otAmt)}</b>  (${otLabel})`,
     "",
     `◽ 12th payday  <b>${fmtCents(got12)}</b>  (salary half)`,
     `◾ 26th payday  <b>${fmtCents(got26)}</b>  (half + OT)`,
@@ -133,6 +136,15 @@ export interface PaydayBreakdown {
   ev: CalendarEvent;
   halfCents: number;
   otCents: number;
+  otCount: number;
+}
+
+function otLine(b: PaydayBreakdown): string {
+  const otMonth = monthLabel(prevMonthKey(b.ev.month));
+  if (b.ev.kind !== "26th") return "";
+  return b.otCents > 0
+    ? `OT (${otMonth}): <b>${fmtCents(b.otCents)}</b>`
+    : `OT (${otMonth}): <b>${fmtCents(0)}</b> <i>(no data)</i>`;
 }
 
 export function paydayBreakdownText(b: PaydayBreakdown): string {
@@ -143,9 +155,8 @@ export function paydayBreakdownText(b: PaydayBreakdown): string {
     `Actual: <b>${friendlyDate(b.ev.actual)}</b>`,
     `Salary (half): <b>${fmtCents(b.halfCents)}</b>`,
   ];
-  if (b.otCents > 0) {
-    lines.push(`OT (${monthLabel(b.ev.month)}): <b>${fmtCents(b.otCents)}</b>`);
-  }
+  const ot = otLine(b);
+  if (ot) lines.push(ot);
   lines.push(`<b>💰 Payout: ${fmtCents(total)}</b>`);
   return lines.join("\n");
 }
@@ -172,9 +183,8 @@ export function paydayNotificationText(
     "",
     `Salary (half): <b>${fmtCents(b.halfCents)}</b>`,
   ];
-  if (b.otCents > 0) {
-    lines.push(`OT (${monthLabel(b.ev.month)}): <b>${fmtCents(b.otCents)}</b>`);
-  }
+  const ot = otLine(b);
+  if (ot) lines.push(ot);
   lines.push(`<b>💰 Total: ${fmtCents(total)}</b>`);
   lines.push("", isToday
     ? "Enjoy your payday! 🎉"
