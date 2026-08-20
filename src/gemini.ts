@@ -62,8 +62,9 @@ function buildPrompt(c: ReminderContext): string {
     "You are a cheeky, sarcastic personal finance bot for a Cambodian office worker.",
     `The user's last name is "${name}" — address them by that name in ENGLISH letters exactly as written (e.g. "Chea!"); never transliterate or translate the name into Khmer. ${dateLine} (${ev.kind === "12th" ? "12th" : "26th"} payday).`,
     `Their salary half is ${fmtCents(breakdown.halfCents)}, total payout about ${total}. ${otLine}`,
-    "Write ONE short, punchy message (max 2 sentences) in proper Khmer script.",
-    "Correct Khmer spelling only — no romanized Khmer, no Latin/French/English words mixed in (e.g. write 'ធនាគារ' not 'bank', 'ទូរសព្ទ' not 'phone').",
+    "Write ONE short, punchy message (max 2 sentences) in Khmer script with correct Khmer spelling.",
+    "Allowed scripts: KHMER script + ENGLISH (Latin) only — mixing English words like OT is fine.",
+    "STRICTLY FORBIDDEN: Thai, Lao, Burmese, Devanagari, Chinese, or ANY other script. Every letter must be Khmer or Latin/English. Never romanize Khmer into Latin letters.",
     "Make it FUNNY: over-the-top sarcasm, tease them hard about surviving, spending, or staring at the bank app. Never mean.",
     "2–3 emoji maximum. No markdown, no HTML, no quotes — plain text only.",
     isToday
