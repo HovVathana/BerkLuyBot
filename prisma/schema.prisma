@@ -48,7 +48,8 @@ model OtRecord {
   @@map("ot_records")
 }
 
-// Dedup guard for payday nudges: one reminder + one "today" message per event.
+// Dedup guard for payday nudges: one message per event per day (event key
+// includes the date). A user gets one reminder each day of the window.
 model Notification {
   userId   BigInt   @map("user_id")
   eventKey String   @map("event_key") // e.g. "2026-04:26th:2026-04-24"

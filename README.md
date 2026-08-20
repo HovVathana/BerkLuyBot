@@ -152,10 +152,10 @@ Pick one (both are free):
 Vercel will send `Authorization: Bearer $CRON_SECRET` automatically. Remove the `crons`
 block from `vercel.json` if you use GitHub Actions instead.
 
-The nudge acts only on an exact day: `REMIND_DAYS_BEFORE` days before the next
-**actual** payday (reminder), and on the payday itself ("Payday is TODAY 💰" with
+The nudge sends a reminder **every day** from `REMIND_DAYS_BEFORE` days before the
+next **actual** payday, and a "Payday is TODAY 💰" message on the day itself (with
 the breakdown — scheduled date, actual date, salary half, OT amount, total).
-Any other day the endpoint does nothing.
+Dedup is per day, so the daily cron delivers at most one message per user per day.
 When `GEMINI_API_KEY` is set, Gemini writes the reminder in Khmer with a funny,
 playful-sarcastic tone and emoji; if the API is unreachable or every model in
 `GEMINI_MODELS` fails, it falls back to the standard message. Notifications are

@@ -55,26 +55,25 @@ export default async function handler(
         continue;
       }
       const daysUntil = dayDiff(today, ev.actual);
-      // Act ONLY on the exact trigger day: the payday itself, or exactly
-      // REMIND_DAYS_BEFORE days before it. Any other day → do nothing.
-      // TESTING=true skips this so a manual run always sends a message.
-      const isPayday = daysUntil === 0;
-      const isReminder = daysUntil === REMIND_DAYS;
-      if (!isPayday && !isReminder && !TESTING) {
+      // Remind every day within the window: from REMIND_DAYS_BEFORE days
+      // before the actual payday up to and including payday itself.
+      // TESTING=true additionally bypasses the dedup below.
+      if (daysUntil < 0 || daysUntil > REMIND_DAYS) {
         skipped++;
         continue;
       }
 
-      const kind: "reminder" | "payday" = isPayday ? "payday" : "reminder";
+      const kind: "reminder" | "payday" = daysUntil === 0 ? "payday" : "reminder";
 
       // 12th pays half the salary; the 26th pays the other half + that month's OT.
       const half = Math.round(p.salaryCents! / 2);
       const otherHalf = p.salaryCents! - half;
 
-      // Dedupe so a given event only nudges once per kind. TESTING=true
-      // bypasses dedup so every manual run delivers.
+      // Dedupe per DAY (event key includes today) so the daily cron sends one
+      // reminder per day through the whole window. TESTING=true skips this so
+      // every manual run delivers.
       if (!TESTING) {
-        const eventKey = `${ev.month}:${ev.kind}:${ev.actual}`;
+        const eventKey = `${ev.month}:${ev.kind}:${ev.actual}:${today}`;
         const isNew = await tryMarkNotification(p.userId, eventKey, kind);
         if (!isNew) {
           skipped++;
