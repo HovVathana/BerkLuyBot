@@ -119,6 +119,7 @@ Set these **Environment Variables** in the Vercel project (Settings → Environm
 | `CRON_SECRET` | any long random string |
 | `APP_TZ` | `Asia/Phnom_Penh` (default) |
 | `REMIND_DAYS_BEFORE` | `10` (default) |
+| `TESTING` | `false` (default) — set `true` to send on every run, ignoring the exact-day check &amp; dedup |
 | `TELEGRAM_SECRET_TOKEN` | optional webhook lock |
 | `GEMINI_API_KEY` | optional — enables AI payday reminders in Khmer |
 | `GEMINI_MODELS` | optional — comma-separated fallbacks, e.g. `gemini-flash-latest,gemini-flash-lite-latest,gemini-2.0-flash-lite` (first that responds wins) |

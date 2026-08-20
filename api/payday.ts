@@ -6,6 +6,7 @@ import type { PaydayBreakdown } from "../src/messages.js";
 
 const TZ = process.env.APP_TZ || "Asia/Phnom_Penh";
 const REMIND_DAYS = Number(process.env.REMIND_DAYS_BEFORE ?? 10);
+const TESTING = String(process.env.TESTING ?? "").toLowerCase() === "true";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const USE_AI = process.env.GEMINI_API_KEY ? true : false;
 
@@ -56,9 +57,10 @@ export default async function handler(
       const daysUntil = dayDiff(today, ev.actual);
       // Act ONLY on the exact trigger day: the payday itself, or exactly
       // REMIND_DAYS_BEFORE days before it. Any other day → do nothing.
+      // TESTING=true skips this so a manual run always sends a message.
       const isPayday = daysUntil === 0;
       const isReminder = daysUntil === REMIND_DAYS;
-      if (!isPayday && !isReminder) {
+      if (!isPayday && !isReminder && !TESTING) {
         skipped++;
         continue;
       }
@@ -69,12 +71,15 @@ export default async function handler(
       const half = Math.round(p.salaryCents! / 2);
       const otherHalf = p.salaryCents! - half;
 
-      // Dedupe so a given event only nudges once per kind.
-      const eventKey = `${ev.month}:${ev.kind}:${ev.actual}`;
-      const isNew = await tryMarkNotification(p.userId, eventKey, kind);
-      if (!isNew) {
-        skipped++;
-        continue;
+      // Dedupe so a given event only nudges once per kind. TESTING=true
+      // bypasses dedup so every manual run delivers.
+      if (!TESTING) {
+        const eventKey = `${ev.month}:${ev.kind}:${ev.actual}`;
+        const isNew = await tryMarkNotification(p.userId, eventKey, kind);
+        if (!isNew) {
+          skipped++;
+          continue;
+        }
       }
 
       let otCents = 0;
