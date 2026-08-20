@@ -3,7 +3,7 @@ import { getOtMonthTotals, listProfilesWithSalary, tryMarkNotification } from ".
 import { paydayNotificationText } from "../src/messages.js";
 import type { PaydayBreakdown } from "../src/messages.js";
 
-const TZ = process.env.TZ || "Asia/Phnom_Penh";
+const TZ = process.env.APP_TZ || "Asia/Phnom_Penh";
 const REMIND_DAYS = Number(process.env.REMIND_DAYS_BEFORE ?? 3);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 

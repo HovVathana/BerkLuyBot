@@ -56,7 +56,7 @@ Everything is computed in integer **cents**; "round to 2dp" = `Math.round` (half
   previous working day (26th on Sunday → Friday 24th).
 - Public holidays live in `src/holidays.ts` — **verify and complete the list for your
   country's official calendar** (the file ships with a few fixed-date samples only).
-  The `TZ` env var decides what "today" is.
+  The `APP_TZ` env var decides what "today" is.
 
 ## Architecture
 
@@ -117,7 +117,7 @@ Set these **Environment Variables** in the Vercel project (Settings → Environm
 | `DATABASE_URL` | `postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1` |
 | `DATABASE_URL_DIRECT` | `postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres` |
 | `CRON_SECRET` | any long random string |
-| `TZ` | `Asia/Phnom_Penh` (default) |
+| `APP_TZ` | `Asia/Phnom_Penh` (default) |
 | `REMIND_DAYS_BEFORE` | `3` (default) |
 | `TELEGRAM_SECRET_TOKEN` | optional webhook lock |
 
@@ -143,7 +143,7 @@ Pick one (both are free):
 1. Create the workflow in this repo (already included).
 2. Set repo **Secrets** → `PAYDAY_CRON_SECRET` (same value as Vercel's `CRON_SECRET`).
 3. Set repo **Variables** → `VERCEL_DEPLOY_URL` (e.g. `https://your-app.vercel.app`).
-4. It runs daily at 01:00 UTC (08:00 UTC+7) — adjust `cron:` in the YAML to match `TZ`.
+4. It runs daily at 01:00 UTC (08:00 UTC+7) — adjust `cron:` in the YAML to match your timezone.
 
 **Vercel Cron (alternative):** `vercel.json` already defines a cron for `/api/payday`;
 Vercel will send `Authorization: Bearer $CRON_SECRET` automatically. Remove the `crons`

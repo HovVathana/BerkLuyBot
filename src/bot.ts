@@ -29,7 +29,7 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!TOKEN) throw new Error("TELEGRAM_BOT_TOKEN is required");
 export const bot = new Bot(TOKEN);
 
-const TZ = process.env.TZ || "Asia/Phnom_Penh";
+const TZ = process.env.APP_TZ || "Asia/Phnom_Penh";
 
 function fields(ctx: Context) {
   const u = ctx.from!;
