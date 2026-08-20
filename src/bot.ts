@@ -29,15 +29,22 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!TOKEN) throw new Error("TELEGRAM_BOT_TOKEN is required");
 export const bot = new Bot(TOKEN);
 
+let initialized = false;
 let initPromise: Promise<void> | null = null;
 
 // grammY requires the bot info (getMe) before it can handle updates. In
-// serverless every warm instance only calls it once.
+// serverless every warm instance only calls it once. (bot.botInfo cannot be
+// safely read before init — it throws instead of returning undefined.)
 export function ensureBotReady(): Promise<void> {
-  if (bot.botInfo) return Promise.resolve();
-  initPromise ??= bot.init().finally(() => {
-    initPromise = null;
-  });
+  if (initialized) return Promise.resolve();
+  initPromise ??= bot
+    .init()
+    .then(() => {
+      initialized = true;
+    })
+    .finally(() => {
+      initPromise = null;
+    });
   return initPromise;
 }
 
