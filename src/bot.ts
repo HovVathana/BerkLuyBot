@@ -12,7 +12,7 @@ import {
   setSalary,
 } from "./storage.js";
 import { computeOt, OT_NAMES, parseSalaryToCents, parseTimes, baseHourlyCents } from "./payroll.js";
-import { fmtDay, parseDay, paydayEvents, todayInTz } from "./payday.js";
+import { fmtDay, monthLabel, parseDay, paydayEvents, todayInTz } from "./payday.js";
 import {
   monthText,
   otListText,
@@ -22,7 +22,7 @@ import {
   paydayCoverText,
   salaryText,
 } from "./messages.js";
-import { esc, fmtCents } from "./format.js";
+import { fmtCents, fmtHours } from "./format.js";
 import type { OtRecord, OtState, OtType } from "./types.js";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -32,14 +32,27 @@ export const bot = new Bot(TOKEN);
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 
-// grammY requires the bot info (getMe) before it can handle updates. In
-// serverless every warm instance only calls it once. (bot.botInfo cannot be
-// safely read before init — it throws instead of returning undefined.)
+// grammY requires the bot info (getMe) before it can handle updates. Also
+// installs the Telegram "/commands" menu. In serverless every warm instance
+// only does this once. (bot.botInfo cannot be safely read before init — it
+// throws instead of returning undefined.)
 export function ensureBotReady(): Promise<void> {
   if (initialized) return Promise.resolve();
   initPromise ??= bot
     .init()
-    .then(() => {
+    .then(async () => {
+      await bot.api.setMyCommands([
+        { command: "menu", description: "Show the menu" },
+        { command: "setsalary", description: "Set monthly salary, e.g. /setsalary 470" },
+        { command: "salary", description: "My salary, hourly rate & OT rates" },
+        { command: "ot", description: "Record overtime" },
+        { command: "otlist", description: "My OT records (optionally YYYY-MM)" },
+        { command: "month", description: "Monthly summary & expected payments" },
+        { command: "payday", description: "Next paydays (scheduled & actual)" },
+        { command: "del", description: "Delete an OT record, e.g. /del 12" },
+        { command: "cancel", description: "Cancel the current entry" },
+        { command: "help", description: "List all commands" },
+      ]);
       initialized = true;
     })
     .finally(() => {
@@ -59,9 +72,16 @@ function fields(ctx: Context) {
   };
 }
 
+// ctx.match is only a plain string for slash commands; a helper keeps the
+// handlers usable from menu buttons too.
+function argOf(ctx: Context): string {
+  return typeof ctx.match === "string" ? ctx.match.trim() : "";
+}
+
 function helpText(): string {
   return [
     "<b>Commands</b>",
+    "/menu              show the menu",
     "/setsalary &lt;amount&gt;  set monthly salary (e.g. /setsalary 470)",
     "/salary              your salary, hourly rate &amp; OT rates",
     "/ot [type] [date] [time]  record OT",
@@ -69,7 +89,7 @@ function helpText(): string {
     "/month [YYYY-MM]     monthly summary &amp; expected payments",
     "/payday              next paydays (scheduled &amp; actual)",
     "/del &lt;id&gt;          delete an OT record",
-    "/cancel              cancel the current OT entry",
+    "/cancel              cancel the current entry",
   ].join("\n");
 }
 
@@ -102,8 +122,16 @@ async function replySensitive(ctx: Context, text: string, markup?: InlineKeyboar
 }
 
 // ---------------------------------------------------------------------------
-// Inline keyboards (single flow object reused across the conversation).
+// Inline keyboards
 // ---------------------------------------------------------------------------
+function menuKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("💰 Payday", "menu:payday").text("💵 Salary", "menu:salary").row()
+    .text("➕ Record OT", "menu:ot").text("📋 OT List", "menu:otlist").row()
+    .text("📊 Month", "menu:month").text("💵 Set Salary", "menu:setsalary").row()
+    .text("❓ Help", "menu:help");
+}
+
 function typeKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
     .text("🔵 D • Holiday (100%)", "ot:type:D").row()
@@ -118,7 +146,7 @@ function dateKeyboard(): InlineKeyboard {
     .text("❌ Cancel", "ot:cancel");
 }
 
-function timeKeyboard(): InlineKeyboard {
+function cancelKeyboard(): InlineKeyboard {
   return new InlineKeyboard().text("❌ Cancel", "ot:cancel");
 }
 
@@ -129,22 +157,29 @@ function confirmKeyboard(): InlineKeyboard {
 }
 
 // ---------------------------------------------------------------------------
-// Commands
+// Command implementations — shared by slash commands AND the menu buttons
 // ---------------------------------------------------------------------------
-bot.command("start", async (ctx) => {
-  await ensureProfile(ctx.from!.id, fields(ctx)).catch(() => {});
-  const name = ctx.from!.first_name ? ` ${esc(ctx.from!.first_name)}` : "";
+async function cmdStart(ctx: Context): Promise<unknown> {
   return ctx.reply(
-    `👋 Hello${name}!\n\nI track your salary, OT hours and paydays — completely private per Telegram account.\n\n${helpText()}`,
-    { parse_mode: "HTML" },
+    `👋 Hello${ctx.from?.first_name ? " " + ctx.from.first_name : ""}!\n\nI track your salary, OT hours and paydays — completely private per Telegram account. Tap an option below or use /help.`,
+    { parse_mode: "HTML", reply_markup: menuKeyboard() },
   );
-});
+}
 
-bot.command("help", (ctx) => ctx.reply(helpText(), { parse_mode: "HTML" }));
+async function cmdMenu(ctx: Context): Promise<unknown> {
+  return ctx.reply("What would you like to do?", {
+    parse_mode: "HTML",
+    reply_markup: menuKeyboard(),
+  });
+}
 
-bot.command("setsalary", async (ctx) => {
+async function cmdHelp(ctx: Context): Promise<unknown> {
+  return ctx.reply(helpText(), { parse_mode: "HTML" });
+}
+
+async function cmdSetSalary(ctx: Context): Promise<unknown> {
   const from = ctx.from!;
-  const arg = ctx.match?.trim();
+  const arg = argOf(ctx);
   if (!arg) {
     return ctx.reply("Usage: /setsalary &lt;monthly amount&gt;, e.g. /setsalary 470", {
       parse_mode: "HTML",
@@ -154,25 +189,20 @@ bot.command("setsalary", async (ctx) => {
   if (cents === null || cents <= 0) {
     return ctx.reply("That doesn't look like a valid amount. Try e.g. /setsalary 470 or /setsalary 470.50");
   }
-  await ensureProfile(from.id, fields(ctx));
-  await setSalary(from.id, cents).catch(() => {});
-  return replySensitive(
-    ctx,
-    `✅ Monthly salary set to <b>${fmtCents(cents)}</b>.\n\nBase hourly: ${fmtCents(baseHourlyCents(cents))}/h\nSee /salary for OT rates and /payday for paydays.`,
-  );
-});
+  await applySalary(ctx, from.id, cents);
+  return undefined;
+}
 
-bot.command("salary", async (ctx) => {
+async function cmdSalary(ctx: Context): Promise<unknown> {
   const from = ctx.from!;
   const profile = await getProfile(from.id);
   if (!profile || !profile.salaryCents) {
-    return replySensitive(ctx, "Please set your salary first with /setsalary &lt;amount&gt;.");
+    return replySensitive(ctx, "Set your salary first with /setsalary &lt;amount&gt;.");
   }
   return replySensitive(ctx, salaryText(profile));
-});
+}
 
-// ---- /ot -------------------------------------------------------------
-bot.command("ot", async (ctx) => {
+async function cmdOt(ctx: Context): Promise<unknown> {
   const from = ctx.from!;
   await ensureProfile(from.id, fields(ctx)).catch(() => {});
   const profile = await getProfile(from.id);
@@ -180,7 +210,7 @@ bot.command("ot", async (ctx) => {
     return replySensitive(ctx, "Set your salary first: /setsalary 470");
   }
 
-  const args = (ctx.match ?? "").trim();
+  const args = argOf(ctx);
   const parts = args.split(/\s+/).filter(Boolean);
 
   // Fast path: /ot A 09:00-17:00  or  /ot A 2026-08-16 09:00-17:00
@@ -225,35 +255,32 @@ bot.command("ot", async (ctx) => {
   await setConversation(from.id, state).catch(() => {});
   const text = ["<b>What kind of OT?</b>", "", "D = Holiday (100%)", "N = Evening (150%)", "A = Weekend (200%)"].join("\n");
   return ctx.reply(text, { parse_mode: "HTML", reply_markup: typeKeyboard() });
-});
+}
 
-// ---- /otlist ----------------------------------------------------------
-bot.command("otlist", async (ctx) => {
+async function cmdOtlist(ctx: Context): Promise<unknown> {
   const from = ctx.from!;
   await ensureProfile(from.id, fields(ctx)).catch(() => {});
-  const monthKey = parseMonthArg(ctx.match?.trim()) ?? todayInTz(TZ).slice(0, 7);
+  const monthKey = parseMonthArg(argOf(ctx)) ?? todayInTz(TZ).slice(0, 7);
   const [y, m] = monthKey.split("-").map(Number);
   const records = await getOtRecords(from.id, y, m);
   const totals = await getOtMonthTotals(from.id, y, m);
   return replySensitive(ctx, otListText(records, monthKey, totals));
-});
+}
 
-// ---- /month -----------------------------------------------------------
-bot.command("month", async (ctx) => {
+async function cmdMonth(ctx: Context): Promise<unknown> {
   const from = ctx.from!;
   await ensureProfile(from.id, fields(ctx)).catch(() => {});
   const profile = await getProfile(from.id);
   if (!profile || !profile.salaryCents) {
     return replySensitive(ctx, "Set your salary first: /setsalary 470");
   }
-  const monthKey = parseMonthArg(ctx.match?.trim()) ?? todayInTz(TZ).slice(0, 7);
+  const monthKey = parseMonthArg(argOf(ctx)) ?? todayInTz(TZ).slice(0, 7);
   const [y, m] = monthKey.split("-").map(Number);
   const totals = await getOtMonthTotals(from.id, y, m);
   return replySensitive(ctx, monthText(profile, monthKey, totals));
-});
+}
 
-// ---- /payday ----------------------------------------------------------
-bot.command("payday", async (ctx) => {
+async function cmdPayday(ctx: Context): Promise<unknown> {
   const from = ctx.from!;
   await ensureProfile(from.id, fields(ctx)).catch(() => {});
   const profile = await getProfile(from.id);
@@ -278,35 +305,83 @@ bot.command("payday", async (ctx) => {
   }
   const text = [paydayCoverText(profile), "", ...blocks.map((b) => paydayBreakdownText(b))].join("\n");
   return replySensitive(ctx, text);
-});
+}
 
-// ---- /del -------------------------------------------------------------
-bot.command("del", async (ctx) => {
+async function cmdDel(ctx: Context): Promise<unknown> {
   const from = ctx.from!;
-  const id = Number(ctx.match?.trim());
+  const id = Number(argOf(ctx));
   if (!Number.isInteger(id) || id <= 0) {
     return ctx.reply("Usage: /del &lt;record id&gt;. Find an id with /otlist.");
   }
   const ok = await deleteOtRecord(from.id, id);
   if (ok) return ctx.reply(`🗑️ Deleted OT record #${id}.`);
   return ctx.reply("Couldn't delete that record (it doesn't exist or isn't yours).");
-});
+}
 
-// ---- /cancel ----------------------------------------------------------
-bot.command("cancel", async (ctx) => {
+async function cmdCancel(ctx: Context): Promise<unknown> {
   await clearConversation(ctx.from!.id).catch(() => {});
   return ctx.reply("❌ Cancelled.");
-});
+}
+
+async function applySalary(ctx: Context, userId: number, cents: number): Promise<unknown> {
+  await ensureProfile(userId, fields(ctx)).catch(() => {});
+  await setSalary(userId, cents).catch(() => {});
+  return replySensitive(
+    ctx,
+    `✅ Monthly salary set to <b>${fmtCents(cents)}</b>.\n\nBase hourly: ${fmtCents(baseHourlyCents(cents))}/h\nSee /salary for OT rates and /payday for paydays.`,
+  );
+}
+
+async function menuSetSalary(ctx: Context): Promise<unknown> {
+  const from = ctx.from!;
+  await ensureProfile(from.id, fields(ctx)).catch(() => {});
+  const state: OtState = { flow: "salary", step: "salary" };
+  await setConversation(from.id, state).catch(() => {});
+  return ctx.reply("💵 Send your monthly salary as a number, e.g. 470 or 470.50", {
+    parse_mode: "HTML",
+    reply_markup: cancelKeyboard(),
+  });
+}
 
 // ---------------------------------------------------------------------------
-// Callbacks (guided OT conversation)
+// Slash commands
+// ---------------------------------------------------------------------------
+bot.command("start", cmdStart);
+bot.command("menu", cmdMenu);
+bot.command("help", cmdHelp);
+bot.command("setsalary", cmdSetSalary);
+bot.command("salary", cmdSalary);
+bot.command("ot", cmdOt);
+bot.command("otlist", cmdOtlist);
+bot.command("month", cmdMonth);
+bot.command("payday", cmdPayday);
+bot.command("del", cmdDel);
+bot.command("cancel", cmdCancel);
+
+// ---------------------------------------------------------------------------
+// Callbacks (menu buttons + guided conversation)
 // ---------------------------------------------------------------------------
 bot.on("callback_query:data", async (ctx) => {
   const from = ctx.from!;
   if (!from) return;
   const data = ctx.callbackQuery.data;
   await ctx.answerCallbackQuery().catch(() => {});
-  if (!data.startsWith("ot:")) return;
+  if (!data.startsWith("ot:") && !data.startsWith("menu:")) return;
+
+  // ---- menu buttons dispatch to the same logic as the slash commands ----
+  if (data.startsWith("menu:")) {
+    const action = data.slice(5);
+    switch (action) {
+      case "payday": return cmdPayday(ctx);
+      case "salary": return cmdSalary(ctx);
+      case "ot": return cmdOt(ctx);
+      case "otlist": return cmdOtlist(ctx);
+      case "month": return cmdMonth(ctx);
+      case "setsalary": return menuSetSalary(ctx);
+      case "help": return cmdHelp(ctx);
+      default: return;
+    }
+  }
 
   const st = await getConversation(from.id).catch(() => null);
 
@@ -334,8 +409,8 @@ bot.on("callback_query:data", async (ctx) => {
     await setConversation(from.id, next).catch(() => {});
     const text = `🕐 Start and finish time (HH:MM)?\n\nFormat: 09:00-17:00 (dash separated).`;
     await ctx
-      .editMessageText(text, { parse_mode: "HTML", reply_markup: timeKeyboard() })
-      .catch(() => ctx.reply(text, { parse_mode: "HTML", reply_markup: timeKeyboard() }));
+      .editMessageText(text, { parse_mode: "HTML", reply_markup: cancelKeyboard() })
+      .catch(() => ctx.reply(text, { parse_mode: "HTML", reply_markup: cancelKeyboard() }));
     return;
   }
 
@@ -365,6 +440,10 @@ bot.on("callback_query:data", async (ctx) => {
       amountCents: st.computed.amountCents,
     });
     await clearConversation(from.id).catch(() => {});
+
+    // confirmation + running month total
+    const [y, m] = st.date!.split("-").map(Number);
+    const totals = await getOtMonthTotals(from.id, y, m);
     const saved: OtRecord = {
       id: rec,
       userId: from.id,
@@ -378,22 +457,35 @@ bot.on("callback_query:data", async (ctx) => {
       rateCents: st.computed.rateCents,
       amountCents: st.computed.amountCents,
     };
+    const text = `${otSavedText(saved)}\n\n📈 ${monthLabel(st.date!)} so far: ${fmtHours(totals.paidHours)}h • ${fmtCents(totals.amountCents)}`;
     await ctx
-      .editMessageText(otSavedText(saved), { parse_mode: "HTML" })
-      .catch(() => ctx.reply(otSavedText(saved), { parse_mode: "HTML" }));
+      .editMessageText(text, { parse_mode: "HTML" })
+      .catch(() => ctx.reply(text, { parse_mode: "HTML" }));
     return;
   }
 });
 
 // ---------------------------------------------------------------------------
-// Free-text input for the guided conversation (date & time steps)
+// Free-text input for guided flows (OT date/time + salary amount)
 // ---------------------------------------------------------------------------
 bot.on("message:text", async (ctx) => {
   const from = ctx.from;
   if (!from) return;
   const st = await getConversation(from.id).catch(() => null);
-  if (!st || st.flow !== "ot") return;
+  if (!st) return;
   const text = ctx.message.text.trim();
+
+  // ---- salary amount entry (from the menu) ----
+  if (st.flow === "salary") {
+    const cents = parseSalaryToCents(text);
+    if (cents === null || cents <= 0) {
+      return ctx.reply("Send a valid amount, e.g. 470 or 470.50 (or /cancel).");
+    }
+    await clearConversation(from.id).catch(() => {});
+    return applySalary(ctx, from.id, cents);
+  }
+
+  if (st.flow !== "ot") return;
 
   if (st.step === "date") {
     let date: string | null = null;
@@ -409,7 +501,7 @@ bot.on("message:text", async (ctx) => {
     await setConversation(from.id, next).catch(() => {});
     return ctx.reply("🕐 Start and finish time (HH:MM)?\n\nFormat: 09:00-17:00", {
       parse_mode: "HTML",
-      reply_markup: timeKeyboard(),
+      reply_markup: cancelKeyboard(),
     });
   }
 

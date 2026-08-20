@@ -37,8 +37,8 @@ export interface OtComputed {
 }
 
 export interface OtState {
-  flow: "ot";
-  step: "type" | "date" | "time" | "confirm";
+  flow: "ot" | "salary";
+  step: "type" | "date" | "time" | "confirm" | "salary";
   otType?: OtType;
   date?: string;
   startTime?: string;
