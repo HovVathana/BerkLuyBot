@@ -13,6 +13,13 @@ export default async function handler(
     res.status(401).json({ error: "unauthorized" });
     return;
   }
+  try {
+    await ensureBotReady();
+  } catch (err) {
+    console.error("bot init error:", err);
+    res.status(500).json({ ok: false, error: String(err) });
+    return;
+  }
   if (!req.body) {
     res.status(400).json({ error: "no update body" });
     return;
