@@ -1,0 +1,22 @@
+name: Payday Reminders
+
+# Free GitHub-hosted scheduler that "nudges" users before/on payday.
+# It calls the Vercel endpoint every day at 01:00 UTC (= 08:00 in UTC+7,
+# adjust this to match your TZ).
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/payday
+        run: |
+          curl -fsS --max-time 60 \
+            -X POST \
+            -H "x-cron-secret: ${{ secrets.PAYDAY_CRON_SECRET }}" \
+            "${{ vars.VERCEL_DEPLOY_URL }}/api/payday" \
+            && echo "Reminder run finished"

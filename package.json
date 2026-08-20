@@ -1,0 +1,26 @@
+{
+  "name": "salary-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Telegram Salary & OT tracking bot (Vercel webhook + Prisma/Supabase storage)",
+  "scripts": {
+    "dev": "vercel dev",
+    "postinstall": "prisma generate",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset --force",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/selftest.ts",
+    "webhook:set": "tsx scripts/set-webhook.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.12.0",
+    "grammy": "^1.34.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prisma": "6.12.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

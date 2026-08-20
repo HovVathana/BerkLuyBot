@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_DIRECT")
+}
+
+// One row per Telegram account. All salary/OT rows key off the Telegram
+// user id, so users can never see another user's data.
+model Profile {
+  userId      BigInt   @id @map("user_id")
+  firstName   String?  @map("first_name")
+  lastName    String?  @map("last_name")
+  username    String?
+  salaryCents Int?     @map("salary_cents") // monthly salary in cents
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  otRecords    OtRecord[]
+  notifications Notification[]
+  conversation Conversation?
+
+  @@map("profiles")
+}
+
+// Each OT record carries its own rate/amount so a later salary change never
+// rewrites history.
+model OtRecord {
+  id          Int      @id @default(autoincrement())
+  userId      BigInt   @map("user_id")
+  date        String   @map("ot_date") // "YYYY-MM-DD"
+  startTime   String   @map("start_time") // "09:00"
+  endTime     String   @map("end_time") // "17:00"
+  otType      String   @map("ot_type") // D | N | A
+  hours       Float // gross duration
+  breakHours  Float    @default(0) @map("break_hours")
+  paidHours   Float    @map("paid_hours") // after break deduction
+  rateCents   Int      @map("rate_cents") // cents per hour at record time
+  amountCents Int      @map("amount_cents") // paidHours * rate
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("ot_records")
+}
+
+// Dedup guard for payday nudges: one reminder + one "today" message per event.
+model Notification {
+  userId   BigInt   @map("user_id")
+  eventKey String   @map("event_key") // e.g. "2026-04:26th:2026-04-24"
+  kind     String // "reminder" | "payday"
+  sentAt   DateTime @default(now()) @map("sent_at")
+
+  profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@id([userId, eventKey, kind])
+  @@map("notifications")
+}
+
+// Guided /ot conversation state, persisted so it survives serverless cold
+// starts.
+model Conversation {
+  userId    BigInt   @id @map("user_id")
+  state     Json // OtState
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("conversations")
+}
