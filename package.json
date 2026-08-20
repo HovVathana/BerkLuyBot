@@ -11,7 +11,8 @@
     "db:reset": "prisma migrate reset --force",
     "typecheck": "tsc --noEmit",
     "test": "tsx scripts/selftest.ts",
-    "webhook:set": "tsx scripts/set-webhook.ts"
+    "webhook:set": "tsx scripts/set-webhook.ts",
+    "clear:marks": "tsx --env-file=.env scripts/clear-notifications.ts"
   },
   "dependencies": {
     "@prisma/client": "6.12.0",
