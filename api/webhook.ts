@@ -1,4 +1,4 @@
-import { bot } from "../src/bot.js";
+import { bot, ensureBotReady } from "../src/bot.js";
 
 // Vercel Node function that receives every Telegram update.
 // Vercel already parses the JSON body into `req.body`, so we feed it straight
@@ -18,6 +18,7 @@ export default async function handler(
     return;
   }
   try {
+    await ensureBotReady();
     await bot.handleUpdate(req.body as Parameters<typeof bot.handleUpdate>[0]);
     res.status(200).json({ ok: true });
   } catch (err) {

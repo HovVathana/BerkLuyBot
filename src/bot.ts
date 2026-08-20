@@ -29,6 +29,18 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!TOKEN) throw new Error("TELEGRAM_BOT_TOKEN is required");
 export const bot = new Bot(TOKEN);
 
+let initPromise: Promise<void> | null = null;
+
+// grammY requires the bot info (getMe) before it can handle updates. In
+// serverless every warm instance only calls it once.
+export function ensureBotReady(): Promise<void> {
+  if (bot.botInfo) return Promise.resolve();
+  initPromise ??= bot.init().finally(() => {
+    initPromise = null;
+  });
+  return initPromise;
+}
+
 const TZ = process.env.APP_TZ || "Asia/Phnom_Penh";
 
 function fields(ctx: Context) {
