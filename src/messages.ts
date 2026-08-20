@@ -1,5 +1,5 @@
 import { esc, fmtCents, fmtHours } from "./format.js";
-import { friendlyDate, monthLabel, prevMonthKey, shortDate } from "./payday.js";
+import { friendlyDate, monthLabel, nextMonthKey, prevMonthKey, shortDate } from "./payday.js";
 import { baseHourlyCents, OT_NAMES, otRateCents } from "./payroll.js";
 import type {
   CalendarEvent,
@@ -61,6 +61,10 @@ export function monthText(
 
   const otLabel =
     payoutOt.count > 0 ? `${monthLabel(prevMonthKey(monthKey))}'s OT` : "no data";
+  const predOt = totals.amountCents;
+  const predLabel =
+    totals.count > 0 ? fmtCents(predOt) : `${fmtCents(0)} (no data)`;
+  const nextLabel = monthLabel(nextMonthKey(monthKey));
 
   const lines = [
     `<b>📊 Salary &amp; OT — ${monthLabel(monthKey)}</b>`,
@@ -74,6 +78,7 @@ export function monthText(
     `◾ 26th payday  <b>${fmtCents(got26)}</b>  (half + OT)`,
     "",
     `<b>💰 Expected total: ${fmtCents(expected)}</b>`,
+    `🔮 Next month (${nextLabel}): ≈ ${fmtCents(s + predOt)}  (this month's OT: ${predLabel})`,
   ];
   return lines.join("\n");
 }
