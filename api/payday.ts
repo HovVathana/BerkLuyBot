@@ -10,19 +10,28 @@ const TESTING = String(process.env.TESTING ?? "").toLowerCase() === "true";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const USE_AI = process.env.GEMINI_API_KEY ? true : false;
 
-async function sendPrivate(userId: number, text: string, plain = false): Promise<boolean> {
-  if (!BOT_TOKEN) return false;
-  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      chat_id: userId,
-      text,
-      ...(plain ? {} : { parse_mode: "HTML" }),
-    }),
-  });
-  const json = (await res.json()) as { ok: boolean };
-  return json.ok === true;
+async function sendPrivate(
+  userId: number,
+  text: string,
+  plain = false,
+): Promise<{ ok: boolean; reason?: string }> {
+  if (!BOT_TOKEN) return { ok: false, reason: "TELEGRAM_BOT_TOKEN not set" };
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: userId,
+        text,
+        ...(plain ? {} : { parse_mode: "HTML" }),
+      }),
+    });
+    const json = (await res.json()) as { ok?: boolean; description?: string };
+    if (json.ok === true) return { ok: true };
+    return { ok: false, reason: `HTTP ${res.status}: ${json.description ?? "unknown error"}` };
+  } catch (err) {
+    return { ok: false, reason: String(err) };
+  }
 }
 
 function authorized(req: { headers: Record<string, string | undefined> }): boolean {
@@ -48,6 +57,7 @@ export default async function handler(
 
     let sent = 0;
     let skipped = 0;
+    const errors: string[] = [];
     for (const p of profiles) {
       const ev = nextPaydayEvent(today);
       if (!ev) {
@@ -109,12 +119,17 @@ export default async function handler(
         text = paydayNotificationText(p, breakdown, daysUntil);
       }
 
-      const ok = await sendPrivate(p.userId, text, plain);
-      if (ok) sent++;
-      else skipped++;
+      const r = await sendPrivate(p.userId, text, plain);
+      if (r.ok) {
+        sent++;
+      } else {
+        skipped++;
+        errors.push(`user ${p.userId}: ${r.reason}`);
+        console.error("payday send failed:", r.reason);
+      }
     }
 
-    res.status(200).json({ ok: true, today, sent, skipped });
+    res.status(200).json({ ok: true, today, sent, skipped, errors });
   } catch (err) {
     console.error("payday cron error:", err);
     res.status(500).json({ ok: false, error: String(err) });
